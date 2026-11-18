@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'none'; object-src 'none'; base-uri 'self';" />
   <title>Jw_cad for Web — 2次元汎用CAD (JWW / JWC ネイティブ互換・スタンドアロン版)</title>
   <meta name="description" content="Jw_cad 互換の2D CAD Webアプリケーション。JWW・JWCバイナリファイルの読み書き、基本作図、テキストボックス、16×16レイヤ管理、右クリック読取点スナップ、クロックメニューを完全再現。" />
-  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
   <style>
 /**
- * Jw_cad Web Compatible - Authentic Jw_cad UI & Precision CAD Stylesheet
+- Jw_cad Web Compatible - Authentic Jw_cad UI & Precision CAD Stylesheet
  */
 
 :root {
@@ -1314,13 +1314,26 @@ textarea {
 
   <script>
 
+// === securityUtils.js ===
+function escapeHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+const MAX_ENTITY_COUNT = 100000;
+const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // 50MB
+
 // === geometry.js ===
 /**
- * Jw_cad Web - Precision 2D Computational Geometry Engine
- * Supports snap detection (読取点: 端点・交点・中点・中心・4分点・仮点),
- * Line-Line / Line-Circle / Circle-Circle intersections,
- * Partial trim (節間消し) for Lines and Circles/Arcs,
- * Chamfer (角面取) and Fillet (丸面取) for Line-Line and Line-Circle/Arc.
+- Jw_cad Web - Precision 2D Computational Geometry Engine
+- Supports snap detection (読取点: 端点・交点・中点・中心・4分点・仮点),
+- Line-Line / Line-Circle / Circle-Circle intersections,
+- Partial trim (節間消し) for Lines and Circles/Arcs,
+- Chamfer (角面取) and Fillet (丸面取) for Line-Line and Line-Circle/Arc.
  */
 const EPS = 1e-6;
 const TWO_PI = Math.PI * 2;
@@ -1345,8 +1358,8 @@ function radToDeg(rad) {
 }
 
 /**
- * Checks if angle `theta` (radians) lies on an arc starting at `startAngle`
- * with positive CCW sweep `sweepAngle` (in radians).
+- Checks if angle `theta` (radians) lies on an arc starting at `startAngle`
+- with positive CCW sweep `sweepAngle` (in radians).
  */
 function isAngleOnArc(theta, startAngle, sweepAngle, tol = 1e-4) {
   if (Math.abs(sweepAngle) >= TWO_PI - 1e-5) return true;
@@ -1359,8 +1372,8 @@ function isAngleOnArc(theta, startAngle, sweepAngle, tol = 1e-4) {
 }
 
 /**
- * Project point `p` onto segment `a`->`b`.
- * Returns { x, y, t, dist } where t is clamped to [0,1] if clamp=true.
+- Project point `p` onto segment `a`->`b`.
+- Returns { x, y, t, dist } where t is clamped to [0,1] if clamp=true.
  */
 function projectPointOnSegment(p, a, b, clamp = true) {
   const dx = b.x - a.x;
@@ -1378,7 +1391,7 @@ function projectPointOnSegment(p, a, b, clamp = true) {
 }
 
 /**
- * Distance from point `p` to circle or arc entity.
+- Distance from point `p` to circle or arc entity.
  */
 function distancePointToArc(p, arc) {
   const cx = arc.cx;
@@ -1398,8 +1411,8 @@ function distancePointToArc(p, arc) {
 }
 
 /**
- * Intersection between two lines:
- * l1: { x1, y1, x2, y2 }, l2: { x1, y1, x2, y2 }
+- Intersection between two lines:
+- l1: { x1, y1, x2, y2 }, l2: { x1, y1, x2, y2 }
  */
 function intersectLineLine(l1, l2, infinite = false) {
   const x1 = l1.x1, y1 = l1.y1, x2 = l1.x2, y2 = l1.y2;
@@ -1422,7 +1435,7 @@ function intersectLineLine(l1, l2, infinite = false) {
 }
 
 /**
- * Intersection between a line { x1, y1, x2, y2 } and a circle/arc { cx, cy, r, startAngle, sweepAngle, isFullCircle }
+- Intersection between a line { x1, y1, x2, y2 } and a circle/arc { cx, cy, r, startAngle, sweepAngle, isFullCircle }
  */
 function intersectLineCircle(line, circle, infiniteLine = false, ignoreArcBounds = false) {
   const dx = line.x2 - line.x1;
@@ -1460,7 +1473,7 @@ function intersectLineCircle(line, circle, infiniteLine = false, ignoreArcBounds
 }
 
 /**
- * Intersection between two circles/arcs
+- Intersection between two circles/arcs
  */
 function intersectCircleCircle(c1, c2, ignoreArcBounds = false) {
   const dx = c2.cx - c1.cx;
@@ -1495,7 +1508,7 @@ function intersectCircleCircle(c1, c2, ignoreArcBounds = false) {
 }
 
 /**
- * Intersect any two CAD entities (line, arc/circle).
+- Intersect any two CAD entities (line, arc/circle).
  */
 function intersectEntities(e1, e2, infinite = false) {
   if (!e1 || !e2 || e1.id === e2.id) return [];
@@ -1515,7 +1528,7 @@ function intersectEntities(e1, e2, infinite = false) {
 }
 
 /**
- * Find all intersection points on `targetEntity` with all visible entities.
+- Find all intersection points on `targetEntity` with all visible entities.
  */
 function findAllIntersectionsOnEntity(targetEntity, visibleEntities) {
   const pts = [];
@@ -1532,9 +1545,9 @@ function findAllIntersectionsOnEntity(targetEntity, visibleEntities) {
 }
 
 /**
- * Jw_cad Right-Click Snap Point Finder (読取点検出)
- * Finds nearest Endpoint (端点), Intersection (交点), Point/Kariten (点/仮点),
- * Center (中心点), Midpoint (中点), Quadrant (4分点), or Entity nearest point.
+- Jw_cad Right-Click Snap Point Finder (読取点検出)
+- Finds nearest Endpoint (端点), Intersection (交点), Point/Kariten (点/仮点),
+- Center (中心点), Midpoint (中点), Quadrant (4分点), or Entity nearest point.
  */
 function findBestSnapPoint(cursorWorld, visibleEntities, snapRadiusWorld) {
   const candidates = [];
@@ -1611,8 +1624,8 @@ function findBestSnapPoint(cursorWorld, visibleEntities, snapRadiusWorld) {
 }
 
 /**
- * Partial Trim (節間消し) for a Line segment between two points `pA` and `pB`,
- * or automatic section erase around `clickPt` using intersections on the line.
+- Partial Trim (節間消し) for a Line segment between two points `pA` and `pB`,
+- or automatic section erase around `clickPt` using intersections on the line.
  */
 function trimLineSegment(line, pA, pB) {
   const projA = projectPointOnSegment(pA, { x: line.x1, y: line.y1 }, { x: line.x2, y: line.y2 }, true);
@@ -1646,10 +1659,10 @@ function trimLineSegment(line, pA, pB) {
 }
 
 /**
- * Partial Trim (節間消し) for a Circle or Arc between two points `p1` and `p2`.
- * Matches Jw_cad's exact behavior:
- * - On a full circle: clicking point 1 (e.g. right intersection) and point 2 (e.g. left intersection)
- *   removes the shorter arc (or CCW arc from p1 to p2) between them and leaves the remaining arc!
+- Partial Trim (節間消し) for a Circle or Arc between two points `p1` and `p2`.
+- Matches Jw_cad's exact behavior:
+- - On a full circle: clicking point 1 (e.g. right intersection) and point 2 (e.g. left intersection)
+-   removes the shorter arc (or CCW arc from p1 to p2) between them and leaves the remaining arc!
  */
 function trimCircleOrArc(circle, p1, p2, clickHint = null) {
   const th1 = normalizeAngle(Math.atan2(p1.y - circle.cy, p1.x - circle.cx));
@@ -1659,10 +1672,6 @@ function trimCircleOrArc(circle, p1, p2, clickHint = null) {
   const isFull = circle.isFullCircle || Math.abs(circle.sweepAngle ?? TWO_PI) >= TWO_PI - 1e-5;
 
   if (isFull) {
-    // Determine which arc between th1 and th2 to remove.
-    // In Jw_cad tutorial: "右の交点で右クリック、左の交点で右クリックし、交点の間を消去します"
-    // CCW from th1 to th2 is `ccw12 = normalizeAngle(th2 - th1)`.
-    // If clickHint is provided, remove the arc containing clickHint; otherwise remove the shorter arc (or CCW if equal).
     const ccw12 = normalizeAngle(th2 - th1);
     let removeCCWFrom1To2 = ccw12 <= Math.PI;
     if (clickHint) {
@@ -1672,7 +1681,6 @@ function trimCircleOrArc(circle, p1, p2, clickHint = null) {
       }
     }
     if (removeCCWFrom1To2) {
-      // Remove th1 -> th2, so remaining arc is th2 -> th1
       return [{
         ...circle,
         type: 'arc',
@@ -1681,7 +1689,6 @@ function trimCircleOrArc(circle, p1, p2, clickHint = null) {
         sweepAngle: TWO_PI - ccw12
       }];
     } else {
-      // Remove th2 -> th1, so remaining arc is th1 -> th2
       return [{
         ...circle,
         type: 'arc',
@@ -1691,7 +1698,6 @@ function trimCircleOrArc(circle, p1, p2, clickHint = null) {
       }];
     }
   } else {
-    // Existing arc from startAngle with sweepAngle
     const sA = normalizeAngle(circle.startAngle || 0);
     const sweep = circle.sweepAngle || TWO_PI;
     let d1 = normalizeAngle(th1 - sA);
@@ -1724,14 +1730,13 @@ function trimCircleOrArc(circle, p1, p2, clickHint = null) {
 }
 
 /**
- * Fillet (丸面取) or Chamfer (角面取) between two lines `l1` and `l2`.
+- Fillet (丸面取) or Chamfer (角面取) between two lines `l1` and `l2`.
  */
 function filletOrChamferLines(l1, l2, size, mode = 'fillet') {
   const hits = intersectLineLine(l1, l2, true);
   if (hits.length === 0) return null;
   const corner = hits[0];
 
-  // Determine which endpoint of l1 and l2 is kept (the side farther from the corner)
   const d1Start = dist( { x: l1.x1, y: l1.y1 }, corner );
   const d1End = dist( { x: l1.x2, y: l1.y2 }, corner );
   const keep1 = d1Start >= d1End ? { x: l1.x1, y: l1.y1, which: 'start' } : { x: l1.x2, y: l1.y2, which: 'end' };
@@ -1763,7 +1768,6 @@ function filletOrChamferLines(l1, l2, size, mode = 'fillet') {
     };
   }
 
-  // Fillet (丸面取) with radius = size
   const dot = Math.max(-1, Math.min(1, u1.x * u2.x + u1.y * u2.y));
   const halfAngle = Math.acos(dot) / 2;
   if (Math.abs(Math.sin(halfAngle)) < 1e-6) return null;
@@ -1800,10 +1804,7 @@ function filletOrChamferLines(l1, l2, size, mode = 'fillet') {
 }
 
 /**
- * Fillet (丸面取) between a Line `line` and a Circle/Arc `circle` with fillet radius `rFillet`.
- * Featured directly in the reference tutorial:
- * "次に、[面取]コマンドの<丸面>で、「寸法＝10」と入力し、角に丸みをつけます。
- *  矩形の垂直線と円を選択すると、半径10mmの丸みが付きます。"
+- Fillet (丸面取) between a Line `line` and a Circle/Arc `circle` with fillet radius `rFillet`.
  */
 function filletLineCircle(line, circle, rFillet, clickLinePt = null, clickCirclePt = null) {
   const dx = line.x2 - line.x1;
@@ -1812,15 +1813,12 @@ function filletLineCircle(line, circle, rFillet, clickLinePt = null, clickCircle
   if (len < 1e-6) return null;
   const ux = dx / len;
   const uy = dy / len;
-  // Normal vectors to the line
   const n1 = { x: -uy, y: ux };
   const n2 = { x: uy, y: -ux };
 
-  // Find intersection of line and circle to guide candidate selection
   const nearIntersections = intersectLineCircle(line, circle, true, true);
   const refPt = clickCirclePt || clickLinePt || (nearIntersections[0] ?? { x: (line.x1 + line.x2) / 2, y: (line.y1 + line.y2) / 2 });
 
-  // Consider offset lines at ±rFillet and circle radii (R - rFillet) and (R + rFillet)
   const candidates = [];
   for (const normal of [n1, n2]) {
     const offsetLine = {
@@ -1838,15 +1836,12 @@ function filletLineCircle(line, circle, rFillet, clickLinePt = null, clickCircle
         true
       );
       for (const c of centers) {
-        // Tangent point on line:
         const tLine = { x: c.x - normal.x * rFillet, y: c.y - normal.y * rFillet };
-        // Tangent point on circle:
         const dirC = Math.atan2(c.y - circle.cy, c.x - circle.cx);
         const tCircle = {
           x: circle.cx + circle.r * Math.cos(dirC),
           y: circle.cy + circle.r * Math.sin(dirC)
         };
-        // Check how close tLine is to the actual line segment and how close tCircle is to the arc/click
         const segProj = projectPointOnSegment(tLine, { x: line.x1, y: line.y1 }, { x: line.x2, y: line.y2 }, true);
         const onSegPenalty = segProj.dist;
         const score =
@@ -1868,7 +1863,6 @@ function filletLineCircle(line, circle, rFillet, clickLinePt = null, clickCircle
   candidates.sort((a, b) => a.score - b.score);
   const best = candidates[0];
 
-  // Trim line at tLine: keep the endpoint farther from the circle intersection (or closer to clickLinePt)
   const isect = nearIntersections.length > 0
     ? nearIntersections.reduce((acc, cur) => (dist(cur, best.tLine) < dist(acc, best.tLine) ? cur : acc), nearIntersections[0])
     : best.tCircle;
@@ -1879,7 +1873,6 @@ function filletLineCircle(line, circle, rFillet, clickLinePt = null, clickCircle
     ? { ...line, x2: best.tLine.x, y2: best.tLine.y }
     : { ...line, x1: best.tLine.x, y1: best.tLine.y };
 
-  // Trim arc if circle is already an arc and tCircle is near one of its endpoints
   let newCircle = { ...circle };
   const thTangent = normalizeAngle(Math.atan2(best.tCircle.y - circle.cy, best.tCircle.x - circle.cx));
   if (!circle.isFullCircle && circle.sweepAngle && circle.sweepAngle < TWO_PI - 1e-4) {
@@ -1902,7 +1895,6 @@ function filletLineCircle(line, circle, rFillet, clickLinePt = null, clickCircle
     }
   }
 
-  // Fillet arc from tLine to tCircle around best.center
   const a1 = normalizeAngle(Math.atan2(best.tLine.y - best.center.y, best.tLine.x - best.center.x));
   const a2 = normalizeAngle(Math.atan2(best.tCircle.y - best.center.y, best.tCircle.x - best.center.x));
   const ccw = normalizeAngle(a2 - a1);
@@ -1927,9 +1919,9 @@ function filletLineCircle(line, circle, rFillet, clickLinePt = null, clickCircle
 
 // === jwwCodec.js ===
 /**
- * Jw_cad Windows Binary Format (.jww) Native Parser & Writer
- * Implements genuine "JwwData." binary header + MFC CArchive object serialization
- * for CDataSen, CDataEnko, CDataTen, CDataMoji, CDataSolid, CDataSunpou.
+- Jw_cad Windows Binary Format (.jww) Native Parser & Writer
+- Implements genuine "JwwData." binary header + MFC CArchive object serialization
+- for CDataSen, CDataEnko, CDataTen, CDataMoji, CDataSolid, CDataSunpou.
  */
 
 const JWW_MAGIC = 'JwwData.';
@@ -1945,17 +1937,12 @@ try {
   textDecoderSjis = textDecoderUtf8;
 }
 
-/**
- * Encode string bytes for MFC CString.
- * Uses UTF-8 or ASCII-compatible encoding; when reading, auto-detects UTF-8 vs Shift-JIS.
- */
 function encodeStringBytes(str) {
   return textEncoder.encode(str || '');
 }
 
 function decodeStringBytes(bytes) {
   if (!bytes || bytes.length === 0) return '';
-  // Check if valid UTF-8 first
   try {
     const strictUtf8 = new TextDecoder('utf-8', { fatal: true });
     return strictUtf8.decode(bytes);
@@ -1964,9 +1951,6 @@ function decodeStringBytes(bytes) {
   }
 }
 
-/**
- * Dynamic Binary Buffer Writer (Little-Endian)
- */
 class BinaryWriter {
   constructor(initialCapacity = 32768) {
     this.buf = new ArrayBuffer(initialCapacity);
@@ -2023,11 +2007,6 @@ class BinaryWriter {
     this.offset += 8;
   }
 
-  /**
-   * MFC CString serialization:
-   * < 255 bytes: [len:BYTE] [bytes...]
-   * >= 255 bytes: [0xFF:BYTE] [len:WORD] [bytes...]
-   */
   writeCString(str) {
     const b = encodeStringBytes(str || '');
     if (b.length < 255) {
@@ -2039,16 +2018,6 @@ class BinaryWriter {
     this.writeBytes(b);
   }
 
-  /**
-   * Write 15-byte base CData header:
-   * DWORD m_lGroup (4)
-   * BYTE  m_nPenStyle (1)
-   * WORD  m_nPenColor (2)
-   * WORD  m_nPenWidth (2)
-   * WORD  m_nLayer (2)
-   * WORD  m_nGLayer (2)
-   * WORD  m_sFlg (2)
-   */
   writeCDataHeader(ent) {
     this.writeU32(ent.lGroup ?? 0);
     this.writeU8(ent.penStyle ?? 1);
@@ -2064,9 +2033,6 @@ class BinaryWriter {
   }
 }
 
-/**
- * Binary Buffer Reader (Little-Endian)
- */
 class BinaryReader {
   constructor(arrayBuffer) {
     this.buf = arrayBuffer;
@@ -2080,7 +2046,7 @@ class BinaryReader {
   }
 
   readBytes(len) {
-    if (this.offset + len > this.buf.byteLength) {
+    if (len < 0 || this.offset + len > this.buf.byteLength) {
       throw new Error(`Unexpected EOF reading ${len} bytes at ${this.offset}`);
     }
     const sub = this.bytes.subarray(this.offset, this.offset + len);
@@ -2125,8 +2091,10 @@ class BinaryReader {
     if (this.remaining() < 1) return '';
     let len = this.readU8();
     if (len === 0xff) {
+      if (this.remaining() < 2) return '';
       len = this.readU16();
       if (len === 0xffff) {
+        if (this.remaining() < 4) return '';
         len = this.readU32();
       }
     }
@@ -2150,9 +2118,6 @@ class BinaryReader {
   }
 }
 
-/**
- * Paper size mapping between Jw_cad m_nZumen code and label
- */
 const JWW_PAPER_CODES = {
   0: { name: 'A0', width: 1189, height: 841 },
   1: { name: 'A1', width: 841, height: 594 },
@@ -2166,31 +2131,23 @@ function paperNameToCode(name) {
   for (const [code, info] of Object.entries(JWW_PAPER_CODES)) {
     if (info.name === name) return Number(code);
   }
-  return 3; // Default A3
+  return 3;
 }
 
-/**
- * Serialize a CAD document state to genuine Jw_cad (.jww) binary ArrayBuffer.
- */
 function writeJwwBinary(doc) {
   const w = new BinaryWriter(65536);
 
-  // 1. Magic "JwwData." (8 bytes) + Version DWORD (4 bytes)
   w.writeAscii(JWW_MAGIC);
   w.writeU32(doc.version || JWW_DEFAULT_VERSION);
 
-  // 2. Memo CString (m_strMemo)
   const defaultMemo = `Jw_cad Web Compatible|${doc.title || '無題.jww'}`;
   w.writeCString(doc.memo || defaultMemo);
 
-  // 3. Paper size code (m_nZumen)
   const paperCode = paperNameToCode(doc.paperSize || 'A3');
   w.writeU32(paperCode);
 
-  // 4. Active Write Layer Group (m_WriteGLayer)
   w.writeU32(doc.activeGroup ?? 0);
 
-  // 5. 16 Layer Groups × (state, writeLayer, scale, protect, 16 Layers × (state, protect))
   for (let g = 0; g < 16; g++) {
     const grp = doc.layerGroups?.[g] || {
       state: 2,
@@ -2212,9 +2169,6 @@ function writeJwwBinary(doc) {
     }
   }
 
-  // 6. Standard header settings block & Layer Group / Layer Names
-  // Write a marker signature "JWWEB_LYR" inside the header extension so our reader can also
-  // recover all 16x16 layer names and custom metadata with 100% precision, followed by standard padding.
   w.writeAscii('JWLYRNAM');
   for (let g = 0; g < 16; g++) {
     const grp = doc.layerGroups?.[g];
@@ -2224,7 +2178,6 @@ function writeJwwBinary(doc) {
     }
   }
 
-  // 7. Entity list serialization using MFC CArchive CObList format
   const entities = doc.entities || [];
   if (entities.length < 0xffff) {
     w.writeU16(entities.length);
@@ -2233,7 +2186,6 @@ function writeJwwBinary(doc) {
     w.writeU32(entities.length);
   }
 
-  // Track MFC CArchive class tags
   const classNameToTag = new Map();
   let nextTagIndex = 1;
 
@@ -2245,7 +2197,6 @@ function writeJwwBinary(doc) {
       w.writeU16(JWW_SCHEMA);
       w.writeU16(className.length);
       w.writeAscii(className);
-      // In MFC CArchive, both the CRuntimeClass and the CObject itself increment the load array index
       nextTagIndex++;
     } else {
       const idx = classNameToTag.get(className);
@@ -2309,7 +2260,6 @@ function writeJwwBinary(doc) {
       w.writeF64(spacing);
       w.writeF64(angleDeg);
 
-      // Encode rich Textbox metadata inside fontName if present so it round-trips losslessly
       let fontField = ent.fontName || 'ＭＳ ゴシック';
       if (ent.isTextbox || ent.boxBorder || ent.boxFill) {
         const boxMeta = {
@@ -2346,11 +2296,9 @@ function writeJwwBinary(doc) {
       }
     } else if (ent.type === 'dimension') {
       writeClassTag('CDataSunpou');
-      // Include 0x2000 SXF extension flag for standard Jw_cad CDataSunpou compatibility
       const sFlg = (ent.sFlg || 0) | 0x2000;
       w.writeCDataHeader({ ...ent, sFlg });
 
-      // Embedded CDataSen m_Sen (dimension line)
       const p1 = ent.p1 || { x: 0, y: 0 };
       const p2 = ent.p2 || { x: 100, y: 0 };
       const dimLineStart = ent.dimLineStart || p1;
@@ -2362,7 +2310,6 @@ function writeJwwBinary(doc) {
       w.writeF64(dimLineEnd.x);
       w.writeF64(dimLineEnd.y);
 
-      // Embedded CDataMoji m_Moji (dimension value text)
       const tx = ent.textPos?.x ?? (dimLineStart.x + dimLineEnd.x) / 2;
       const ty = ent.textPos?.y ?? (dimLineStart.y + dimLineEnd.y) / 2;
       w.writeCDataHeader({ ...ent, sFlg: 0 });
@@ -2388,10 +2335,8 @@ function writeJwwBinary(doc) {
       w.writeCString(`ＭＳ ゴシック@@JWDIM:${dimMeta}`);
       w.writeCString(ent.text || '');
 
-      // SXF 234-byte extension block (when sFlg & 0x2000)
       const sxfBytes = new Uint8Array(234);
       const sxfView = new DataView(sxfBytes.buffer);
-      // Store measurement points p1, p2 in the SXF auxiliary point slots
       sxfView.setFloat64(0, p1.x, true);
       sxfView.setFloat64(8, p1.y, true);
       sxfView.setFloat64(16, p2.x, true);
@@ -2403,10 +2348,6 @@ function writeJwwBinary(doc) {
   return w.toArrayBuffer();
 }
 
-/**
- * Scan binary buffer for the first MFC CRuntimeClass signature:
- * FF FF <schema:2> <len:2> "CData..."
- */
 function findFirstClassTagOffset(bytes, startSearch = 12) {
   const knownClasses = [
     'CDataSen',
@@ -2435,9 +2376,6 @@ function findFirstClassTagOffset(bytes, startSearch = 12) {
   return -1;
 }
 
-/**
- * Parse a single entity payload after its class name has been resolved.
- */
 function parseEntityByClass(r, className, version, nextId) {
   const hdr = r.readCDataHeader(version);
   const baseProps = {
@@ -2545,7 +2483,9 @@ function parseEntityByClass(r, className, version, nextId) {
         isTextbox = Boolean(meta.tb);
         boxBorder = Boolean(meta.bd);
         boxBorderColor = meta.bc ?? baseProps.penColor;
-        boxFill = meta.bg || '';
+        // Sanitize boxFill to prevent CSS injection
+        const rawBg = String(meta.bg || '');
+        boxFill = /^(rgba?\([0-9.,\s]+\)|#[0-9a-fA-F]{3,8}|)$/.test(rawBg) ? rawBg : '';
         boxPadding = meta.pd ?? 2;
         anchor = meta.an || 'left-bottom';
         boxWidth = meta.w || 0;
@@ -2609,14 +2549,12 @@ function parseEntityByClass(r, className, version, nextId) {
   }
 
   if (className === 'CDataSunpou') {
-    // Embedded CDataSen
     const senHdr = r.readCDataHeader(version);
     const sx1 = r.readF64();
     const sy1 = r.readF64();
     const sx2 = r.readF64();
     const sy2 = r.readF64();
 
-    // Embedded CDataMoji
     const mojiHdr = r.readCDataHeader(version);
     const mx1 = r.readF64();
     const my1 = r.readF64();
@@ -2716,9 +2654,6 @@ function parseEntityByClass(r, className, version, nextId) {
   return null;
 }
 
-/**
- * Parse a binary .jww ArrayBuffer into our CAD document representation.
- */
 function parseJwwBinary(arrayBuffer) {
   const r = new BinaryReader(arrayBuffer);
   if (r.remaining() < 12) {
@@ -2766,7 +2701,6 @@ function parseJwwBinary(arrayBuffer) {
     });
   }
 
-  // Check if our JWLYRNAM layer name block is present immediately after the 16x16 table
   if (r.remaining() >= 8) {
     const savePos = r.offset;
     const tag = r.readAscii(8);
@@ -2781,10 +2715,8 @@ function parseJwwBinary(arrayBuffer) {
       }
     } else {
       r.offset = savePos;
-      // Locate the first MFC class tag FF FF <schema> <len> "CData..." in external JWW files
       const firstTagOffset = findFirstClassTagOffset(r.bytes, r.offset);
       if (firstTagOffset >= 2) {
-        // Position 2 bytes before the first class tag (where the WORD entity count sits)
         r.offset = firstTagOffset - 2;
       }
     }
@@ -2796,11 +2728,13 @@ function parseJwwBinary(arrayBuffer) {
     if (entityCount === 0xffff && r.remaining() >= 4) {
       entityCount = r.readU32();
     }
+    // Enforce upper limit to prevent DoS / memory exhaustion from malformed files
+    const safeLimit = Math.min(entityCount, MAX_ENTITY_COUNT);
 
     const tagToClassName = new Map();
     let nextTagIndex = 1;
 
-    for (let i = 0; i < entityCount && r.remaining() >= 2; i++) {
+    for (let i = 0; i < safeLimit && r.remaining() >= 2; i++) {
       const tagWord = r.readU16();
       let className = null;
 
@@ -2809,13 +2743,12 @@ function parseJwwBinary(arrayBuffer) {
         const nameLen = r.readU16();
         className = r.readAscii(nameLen);
         tagToClassName.set(nextTagIndex, className);
-        nextTagIndex += 2; // Class + Object
+        nextTagIndex += 2;
       } else if ((tagWord & 0x8000) !== 0) {
         const classIdx = tagWord & 0x7fff;
         className = tagToClassName.get(classIdx);
-        nextTagIndex += 1; // Object only
+        nextTagIndex += 1;
       } else {
-        // Fallback: scan forward for next known class tag if misaligned
         const nextClassPos = findFirstClassTagOffset(r.bytes, r.offset - 2);
         if (nextClassPos !== -1) {
           r.offset = nextClassPos;
@@ -2851,16 +2784,13 @@ function parseJwwBinary(arrayBuffer) {
 
 // === jwcCodec.js ===
 /**
- * Jw_cad DOS Binary Format (.jwc) Native Parser & Writer + DXF Exporter
- * Supports JWC_DATA / JW_DATA binary records for Lines, Circles, Arcs, Points,
- * Text/Textboxes, Solids, and Dimensions, with full round-trip fidelity.
+- Jw_cad DOS Binary Format (.jwc) Native Parser & Writer + DXF Exporter
+- Supports JWC_DATA / JW_DATA binary records for Lines, Circles, Arcs, Points,
+- Text/Textboxes, Solids, and Dimensions, with full round-trip fidelity.
  */
 
 const JWC_MAGIC = 'JWC_DATA';
 const JWC_LEGACY_MAGIC = 'JW_DATA.';
-
-
-
 
 function encodeStr(str) {
   return textEncoder.encode(str || '');
@@ -2876,16 +2806,6 @@ function decodeStr(bytes) {
   }
 }
 
-/**
- * Record opcodes in JWC binary stream:
- * 0x01: Line (Sen)
- * 0x02: Circle/Arc (Enko)
- * 0x03: Point (Ten)
- * 0x04: Text/Textbox (Moji)
- * 0x05: Solid (Solid)
- * 0x06: Dimension (Sunpou)
- * 0xFF: End of file
- */
 const REC_LINE = 0x01;
 const REC_ARC = 0x02;
 const REC_POINT = 0x03;
@@ -2894,9 +2814,6 @@ const REC_SOLID = 0x05;
 const REC_DIM = 0x06;
 const REC_EOF = 0xff;
 
-/**
- * Serialize CAD document to binary .jwc ArrayBuffer
- */
 function writeJwcBinary(doc) {
   const chunks = [];
   let totalBytes = 0;
@@ -2906,26 +2823,19 @@ function writeJwcBinary(doc) {
     totalBytes += u8.byteLength;
   };
 
-  // 1. 128-byte DOS JWC Header Block
   const header = new Uint8Array(128);
   const hView = new DataView(header.buffer);
   for (let i = 0; i < 8; i++) {
     header[i] = JWC_MAGIC.charCodeAt(i);
   }
-  // Version 223 (Jw_cad DOS Ver 2.23)
   hView.setUint16(8, 223, true);
-  // Paper code
   hView.setUint16(10, paperNameToCode(doc.paperSize || 'A3'), true);
-  // Active Group & Layer
   header[12] = (doc.activeGroup ?? 0) & 0x0f;
   header[13] = (doc.activeLayer ?? 0) & 0x0f;
-  // Base scale (float64 at offset 16)
   hView.setFloat64(16, Number(doc.scale) || 100, true);
-  // Entity count at offset 24
   const entities = doc.entities || [];
   hView.setUint32(24, entities.length, true);
 
-  // Layer states for 16 groups × 16 layers packed in bytes 32..95 (2 bits per layer, or active group states in 32..47)
   const activeGrp = doc.layerGroups?.[doc.activeGroup ?? 0];
   for (let l = 0; l < 16; l++) {
     header[32 + l] = activeGrp?.layers?.[l]?.state ?? 2;
@@ -2936,7 +2846,6 @@ function writeJwcBinary(doc) {
   }
   pushBytes(header);
 
-  // 2. Layer Group Scales & Names table (extended JWC block)
   const metaWriter = [];
   for (let g = 0; g < 16; g++) {
     const grp = doc.layerGroups?.[g];
@@ -2949,12 +2858,11 @@ function writeJwcBinary(doc) {
   const metaBytes = encodeStr(JSON.stringify(metaWriter));
   const metaHeader = new Uint8Array(8);
   const mhView = new DataView(metaHeader.buffer);
-  metaHeader.set([0x4a, 0x57, 0x43, 0x4d]); // "JWCM"
+  metaHeader.set([0x4a, 0x57, 0x43, 0x4d]);
   mhView.setUint32(4, metaBytes.byteLength, true);
   pushBytes(metaHeader);
   pushBytes(metaBytes);
 
-  // 3. Entity Records
   const writeCommonAttr = (view, offset, ent) => {
     view.setUint8(offset, ent.penStyle ?? 1);
     view.setUint8(offset + 1, ent.penColor ?? 1);
@@ -3065,7 +2973,6 @@ function writeJwcBinary(doc) {
     }
   }
 
-  // EOF marker
   pushBytes(new Uint8Array([REC_EOF]));
 
   const out = new Uint8Array(totalBytes);
@@ -3077,9 +2984,6 @@ function writeJwcBinary(doc) {
   return out.buffer;
 }
 
-/**
- * Parse binary .jwc ArrayBuffer into CAD document state
- */
 function parseJwcBinary(arrayBuffer) {
   const bytes = new Uint8Array(arrayBuffer);
   const view = new DataView(arrayBuffer);
@@ -3105,7 +3009,6 @@ function parseJwcBinary(arrayBuffer) {
   const baseScale = view.getFloat64(16, true) || 100;
   const expectedCount = view.getUint32(24, true);
 
-  // Build 16×16 layer group structure
   const layerGroups = [];
   for (let g = 0; g < 16; g++) {
     const layers = [];
@@ -3132,7 +3035,6 @@ function parseJwcBinary(arrayBuffer) {
 
   let offset = 128;
 
-  // Check for "JWCM" metadata block
   if (
     offset + 8 <= bytes.byteLength &&
     bytes[offset] === 0x4a &&
@@ -3176,7 +3078,8 @@ function parseJwcBinary(arrayBuffer) {
     sFlg: view.getUint16(pos + 6, true)
   });
 
-  while (offset < bytes.byteLength && entities.length < Math.max(expectedCount, 100000)) {
+  const safeLimit = Math.min(expectedCount, MAX_ENTITY_COUNT);
+  while (offset < bytes.byteLength && entities.length < safeLimit) {
     const op = view.getUint8(offset);
     if (op === REC_EOF || op === 0) break;
 
@@ -3237,6 +3140,7 @@ function parseJwcBinary(arrayBuffer) {
       const angleDeg = view.getFloat64(offset + 49, true);
       const byteLen = view.getUint32(offset + 57, true);
       offset += 61;
+      if (offset + byteLen > bytes.byteLength) break;
       const rawStr = decodeStr(bytes.subarray(offset, offset + byteLen));
       offset += byteLen;
 
@@ -3249,6 +3153,9 @@ function parseJwcBinary(arrayBuffer) {
       } catch {
         // Plain string
       }
+
+      const rawBg = String(parsed.boxFill || '');
+      const safeBoxFill = /^(rgba?\([0-9.,\s]+\)|#[0-9a-fA-F]{3,8}|)$/.test(rawBg) ? rawBg : '';
 
       entities.push({
         ...base,
@@ -3265,7 +3172,7 @@ function parseJwcBinary(arrayBuffer) {
         isTextbox: Boolean(parsed.isTextbox),
         boxBorder: Boolean(parsed.boxBorder),
         boxBorderColor: parsed.boxBorderColor ?? base.penColor,
-        boxFill: parsed.boxFill || '',
+        boxFill: safeBoxFill,
         boxPadding: parsed.boxPadding ?? 2,
         anchor: parsed.anchor || 'left-bottom',
         boxWidth: parsed.boxWidth || 0,
@@ -3289,6 +3196,7 @@ function parseJwcBinary(arrayBuffer) {
     } else if (op === REC_DIM && offset + 13 <= bytes.byteLength) {
       const len = view.getUint32(offset + 9, true);
       offset += 13;
+      if (offset + len > bytes.byteLength) break;
       const rawJson = decodeStr(bytes.subarray(offset, offset + len));
       offset += len;
       try {
@@ -3318,9 +3226,6 @@ function parseJwcBinary(arrayBuffer) {
   };
 }
 
-/**
- * Export CAD document to AutoCAD / Jw_cad compatible DXF text format
- */
 function exportDxfString(doc) {
   const lines = [
     '0', 'SECTION',
@@ -3366,6 +3271,7 @@ function exportDxfString(doc) {
         '51', String(eDeg)
       );
     } else if (ent.type === 'text') {
+      const sanitizedText = String(ent.text || '').replace(/[\r\n]+/g, ' ');
       lines.push(
         '0', 'TEXT',
         '8', layerName,
@@ -3374,7 +3280,7 @@ function exportDxfString(doc) {
         '20', String(ent.y),
         '40', String(ent.fontSize || 3.5),
         '50', String(ent.angleDeg || 0),
-        '1', ent.text || ''
+        '1', sanitizedText
       );
     } else if (ent.type === 'point') {
       lines.push(
@@ -3393,12 +3299,6 @@ function exportDxfString(doc) {
 
 
 // === sampleDrawings.js ===
-/**
- * Built-in Jw_cad Sample Drawings (.jww & .jwc)
- * 1. キャド研 参照記事チュートリアル図面 (cad_kenkyujo_tutorial.jww)
- * 2. 木造住宅 1階平面図 S=1/100 (wooden_house_1f.jww)
- * 3. RC造 矩計・基礎断面詳細図 (rc_section_detail.jwc)
- */
 function createDefaultLayerGroups(scale = 1, customLayerNames = {}) {
   const groups = [];
   for (let g = 0; g < 16; g++) {
@@ -3411,7 +3311,7 @@ function createDefaultLayerGroups(scale = 1, customLayerNames = {}) {
         index: l,
         hex: lHex,
         name: customLayerNames[customKey] || (g === 0 && defaultGroup0Names[l]) || `レイヤ${lHex}`,
-        state: 2, // 2: 表示・編集可能, 1: 表示のみ, 0: 非表示
+        state: 2,
         protect: 0
       });
     }
@@ -3448,33 +3348,22 @@ const defaultGroup0Names = {
   15: '図面枠・表題欄'
 };
 
-/**
- * Sample 1: Reference Article (https://cad-kenkyujo.com/jw_cad/) Tutorial Completed Drawing
- * Step-by-step exact geometric construction:
- * - Layer 0: Horizontal & Vertical reference lines through (0,0)
- * - Layer 2: R200 inner circle, R250 outer circle, 100x50 rectangle centered at (0,200),
- *   trimmed between intersections, and filleted with R10 (丸面 寸法=10) on both sides!
- * - Layer 3: Dimensions (100 width, 25 groove depth using 仮点 at (0,200), φ400, φ500 at 45°, R10)
- * - Layer 4: Title & Spec Textboxes
- */
 function buildTutorialSampleDoc(showReferenceLayer = false) {
   const layerGroups = createDefaultLayerGroups(5);
   layerGroups[0].activeLayer = 2;
-  // In the tutorial, Layer 0 (reference lines) is hidden or view-only after drawing
   layerGroups[0].layers[0].state = showReferenceLayer ? 1 : 0;
 
   const entities = [];
   let idSeq = 1;
   const nextId = () => `E-${String(idSeq++).padStart(4, '0')}`;
 
-  // 1. Layer 0: Reference center lines (水平・垂直基準線)
   entities.push({
     id: nextId(),
     type: 'line',
     gLayer: 0,
     layer: 0,
-    penColor: 6, // 補助・基準線色
-    penStyle: 5, // 一点鎖線
+    penColor: 6,
+    penStyle: 5,
     penWidth: 1,
     x1: -320,
     y1: 0,
@@ -3495,14 +3384,13 @@ function buildTutorialSampleDoc(showReferenceLayer = false) {
     y2: 320
   });
 
-  // 2. Layer 2: Outer circle R=250
   entities.push({
     id: nextId(),
     type: 'circle',
     gLayer: 0,
     layer: 2,
-    penColor: 2, // 白/黒 (主要線)
-    penStyle: 1, // 実線
+    penColor: 2,
+    penStyle: 1,
     penWidth: 2,
     cx: 0,
     cy: 0,
@@ -3512,9 +3400,7 @@ function buildTutorialSampleDoc(showReferenceLayer = false) {
     isFullCircle: true
   });
 
-  // 3. Layer 2: Inner circle R=200 trimmed at top slot (x = -50..50) and filleted with R10!
-  // Compute exact intersection + R10 fillet with left vertical line (x=-50) and right vertical line (x=50)
-  const yIsect = Math.sqrt(200 * 200 - 50 * 50); // 193.6491673
+  const yIsect = Math.sqrt(200 * 200 - 50 * 50);
   const leftVert = { type: 'line', x1: -50, y1: 225, x2: -50, y2: yIsect };
   const rightVert = { type: 'line', x1: 50, y1: 225, x2: 50, y2: yIsect };
 
@@ -3531,7 +3417,6 @@ function buildTutorialSampleDoc(showReferenceLayer = false) {
   const fLeft = filletLineCircle(leftVert, baseArc, 10, { x: -50, y: 210 }, { x: -70, y: 185 });
   const fRight = filletLineCircle(rightVert, fLeft ? fLeft.newCircle : baseArc, 10, { x: 50, y: 210 }, { x: 70, y: 185 });
 
-  // Top horizontal edge of the 100×50 rectangle (centered at (0, 200) -> y = 225)
   entities.push({
     id: nextId(),
     type: 'line',
@@ -3546,7 +3431,6 @@ function buildTutorialSampleDoc(showReferenceLayer = false) {
     y2: 225
   });
 
-  // Left and Right vertical edges (filleted to R10)
   entities.push({
     id: nextId(),
     ...(fLeft ? fLeft.newLine : leftVert),
@@ -3566,7 +3450,6 @@ function buildTutorialSampleDoc(showReferenceLayer = false) {
     penWidth: 2
   });
 
-  // Main R200 arc after both fillets
   entities.push({
     id: nextId(),
     ...(fRight ? fRight.newCircle : baseArc),
@@ -3577,7 +3460,6 @@ function buildTutorialSampleDoc(showReferenceLayer = false) {
     penWidth: 2
   });
 
-  // Left and Right R10 fillet arcs
   if (fLeft?.filletArc) {
     entities.push({
       id: nextId(),
@@ -3601,13 +3483,12 @@ function buildTutorialSampleDoc(showReferenceLayer = false) {
     });
   }
 
-  // 4. Temporary Intersection Point (仮点) at (0, 200) created in the tutorial for groove depth measurement
   entities.push({
     id: nextId(),
     type: 'point',
     gLayer: 0,
     layer: 2,
-    penColor: 5, // マゼンタ仮点
+    penColor: 5,
     penStyle: 9,
     penWidth: 1,
     x: 0,
@@ -3615,15 +3496,13 @@ function buildTutorialSampleDoc(showReferenceLayer = false) {
     isKariten: true
   });
 
-  // 5. Layer 3: Dimensions (寸法) matching the tutorial
-  // (a) Top groove width: 100
   entities.push({
     id: nextId(),
     type: 'dimension',
     dimKind: 'linear',
     gLayer: 0,
     layer: 3,
-    penColor: 1, // シアン
+    penColor: 1,
     penStyle: 1,
     penWidth: 1,
     p1: { x: -50, y: 225 },
@@ -3637,7 +3516,6 @@ function buildTutorialSampleDoc(showReferenceLayer = false) {
     angleDeg: 0
   });
 
-  // (b) Groove depth: 25 (from (0, 200) temporary intersection point to (0, 225))
   entities.push({
     id: nextId(),
     type: 'dimension',
@@ -3658,7 +3536,6 @@ function buildTutorialSampleDoc(showReferenceLayer = false) {
     angleDeg: 90
   });
 
-  // (c) Inner Circle Diameter φ400 (horizontal)
   entities.push({
     id: nextId(),
     type: 'dimension',
@@ -3681,7 +3558,6 @@ function buildTutorialSampleDoc(showReferenceLayer = false) {
     angleDeg: 0
   });
 
-  // (d) Outer Circle Diameter φ500 at 傾き=45°
   const c45 = Math.cos(Math.PI / 4);
   const s45 = Math.sin(Math.PI / 4);
   entities.push({
@@ -3706,7 +3582,6 @@ function buildTutorialSampleDoc(showReferenceLayer = false) {
     angleDeg: 45
   });
 
-  // (e) Fillet Radius R10
   if (fLeft?.filletArc) {
     const fc = fLeft.filletArc;
     const midA = fc.startAngle + fc.sweepAngle * 0.5;
@@ -3735,13 +3610,12 @@ function buildTutorialSampleDoc(showReferenceLayer = false) {
     });
   }
 
-  // 6. Layer 4: Text & Textbox Annotations
   entities.push({
     id: nextId(),
     type: 'text',
     gLayer: 0,
     layer: 4,
-    penColor: 3, // 緑
+    penColor: 3,
     penStyle: 1,
     penWidth: 1,
     x: -260,
@@ -3776,9 +3650,6 @@ function buildTutorialSampleDoc(showReferenceLayer = false) {
   };
 }
 
-/**
- * Sample 2: Japanese Architectural Floor Plan (木造住宅 1階平面図 S=1/100)
- */
 function buildArchitecturalPlanSampleDoc() {
   const layerGroups = createDefaultLayerGroups(25);
   layerGroups[0].activeLayer = 2;
@@ -3787,8 +3658,6 @@ function buildArchitecturalPlanSampleDoc() {
   let idSeq = 1;
   const nextId = () => `E-${String(idSeq++).padStart(4, '0')}`;
 
-  // Grid Axes on Layer 1 (通り芯: X1=0, X2=182, X3=364, X4=728; Y1=0, Y2=273, Y3=546)
-  // Coordinates in scaled drawing units (1 unit = 10mm -> 7280mm = 728)
   const xCols = [
     { x: -364, label: 'X1' },
     { x: -182, label: 'X2' },
@@ -3808,7 +3677,7 @@ function buildArchitecturalPlanSampleDoc() {
       gLayer: 0,
       layer: 1,
       penColor: 1,
-      penStyle: 5, // 一点鎖線
+      penStyle: 5,
       penWidth: 1,
       x1: col.x,
       y1: -340,
@@ -3901,7 +3770,6 @@ function buildArchitecturalPlanSampleDoc() {
     });
   }
 
-  // Layer 2: Exterior & Interior Double Walls (壁厚 150mm -> ±7.5 units)
   const addDoubleWall = (x1, y1, x2, y2, halfW = 7.5) => {
     const dx = x2 - x1;
     const dy = y2 - y1;
@@ -3936,18 +3804,15 @@ function buildArchitecturalPlanSampleDoc() {
     });
   };
 
-  // Outer perimeter walls
   addDoubleWall(-364, -273, 364, -273);
   addDoubleWall(364, -273, 364, 273);
   addDoubleWall(364, 273, -364, 273);
   addDoubleWall(-364, 273, -364, -273);
 
-  // Interior partition walls
   addDoubleWall(0, -273, 0, 273, 6);
   addDoubleWall(-364, 0, 0, 0, 6);
   addDoubleWall(-182, 0, -182, 273, 6);
 
-  // Structural columns (柱ソリッド) at grid intersections
   for (const col of xCols) {
     for (const row of yRows) {
       const s = 7.5;
@@ -3956,7 +3821,7 @@ function buildArchitecturalPlanSampleDoc() {
         type: 'solid',
         gLayer: 0,
         layer: 2,
-        penColor: 4, // 黄色
+        penColor: 4,
         penStyle: 1,
         penWidth: 1,
         points: [
@@ -3969,8 +3834,6 @@ function buildArchitecturalPlanSampleDoc() {
     }
   }
 
-  // Layer 5: Doors & Windows (建具)
-  // Entrance Door swing arc at (-91, -273)
   entities.push({
     id: nextId(),
     type: 'arc',
@@ -4000,7 +3863,6 @@ function buildArchitecturalPlanSampleDoc() {
     y2: -195
   });
 
-  // LDK interior door swing arc at (0, -120)
   entities.push({
     id: nextId(),
     type: 'arc',
@@ -4030,8 +3892,6 @@ function buildArchitecturalPlanSampleDoc() {
     y2: -150
   });
 
-  // Layer 6: Kitchen unit & Bath fixtures (設備)
-  // Kitchen counter in LDK (120..320, 180..245)
   entities.push({
     id: nextId(),
     type: 'line',
@@ -4100,7 +3960,6 @@ function buildArchitecturalPlanSampleDoc() {
     isFullCircle: true
   });
 
-  // Layer 4: Room Labels & Specification Textboxes
   const roomLabels = [
     { x: 110, y: -30, text: 'LDK 16.0帖\nFL+0 (フローリング)' },
     { x: -320, y: -140, text: '和室 6.0帖\n(タタミ敷)' },
@@ -4135,7 +3994,6 @@ function buildArchitecturalPlanSampleDoc() {
     });
   }
 
-  // Title Block Textbox on Layer 15
   entities.push({
     id: nextId(),
     type: 'text',
@@ -4161,7 +4019,6 @@ function buildArchitecturalPlanSampleDoc() {
     anchor: 'left-bottom'
   });
 
-  // Layer 3: Architectural Dimensions (寸法線)
   const horizDims = [
     { x1: -364, x2: -182, text: '1,820', y: 310 },
     { x1: -182, x2: 0, text: '1,820', y: 310 },
@@ -4230,9 +4087,6 @@ function buildArchitecturalPlanSampleDoc() {
   };
 }
 
-/**
- * Sample 3: JWC Format Sample (RC造 基礎・矩計断面詳細図 .jwc)
- */
 function buildJwcSectionSampleDoc() {
   const layerGroups = createDefaultLayerGroups(10);
   layerGroups[0].activeLayer = 2;
@@ -4241,7 +4095,6 @@ function buildJwcSectionSampleDoc() {
   let idSeq = 1;
   const nextId = () => `E-${String(idSeq++).padStart(4, '0')}`;
 
-  // GL line (設計GL)
   entities.push({
     id: nextId(),
     type: 'line',
@@ -4256,7 +4109,6 @@ function buildJwcSectionSampleDoc() {
     y2: -60
   });
 
-  // RC Continuous Footing (布基礎断面)
   const footingLines = [
     [-120, -180, 120, -180],
     [120, -180, 120, -130],
@@ -4283,7 +4135,6 @@ function buildJwcSectionSampleDoc() {
     });
   }
 
-  // Anchor Bolt & Rebar Circles
   for (const rx of [-90, -50, 0, 50, 90]) {
     entities.push({
       id: nextId(),
@@ -4302,7 +4153,6 @@ function buildJwcSectionSampleDoc() {
     });
   }
 
-  // Dimensions
   entities.push({
     id: nextId(),
     type: 'dimension',
@@ -4343,7 +4193,6 @@ function buildJwcSectionSampleDoc() {
     angleDeg: 90
   });
 
-  // Textbox annotation
   entities.push({
     id: nextId(),
     type: 'text',
@@ -4384,15 +4233,6 @@ function buildJwcSectionSampleDoc() {
 
 
 // === cadEngine.js ===
-/**
- * Jw_cad Web - Canvas 2D & 2.5D Rendering, Hit-Testing, and Grip Manipulation Engine
- */
-
-
-/**
- * Authentic Jw_cad Standard Pen Colors (線色1〜線色9)
- * Adapts automatically between Black background (標準黒背景) and White background (白背景・印刷プレビュー).
- */
 const JWCAD_PEN_COLORS = {
   1: { name: '線色1 (シアン)', dark: '#00ffff', light: '#0077aa' },
   2: { name: '線色2 (白/黒)', dark: '#ffffff', light: '#111827' },
@@ -4405,9 +4245,6 @@ const JWCAD_PEN_COLORS = {
   9: { name: '補助線色 (桃)', dark: '#ff77aa', light: '#f472b6' }
 };
 
-/**
- * Authentic Jw_cad Standard Line Styles (線種1〜線種9)
- */
 const JWCAD_LINE_STYLES = {
   1: { name: '実線', dash: [] },
   2: { name: '点線1 (細)', dash: [4, 3] },
@@ -4428,9 +4265,6 @@ function getLineDashPattern(penStyle, zoom = 1) {
   return entry.dash;
 }
 
-/**
- * Compute Text / Textbox bounding box in world coordinates
- */
 function getTextWorldMetrics(ent) {
   const lines = String(ent.text || '').split(/\r?\n/);
   const charH = Number(ent.sizeY || ent.fontSize || 10);
@@ -4454,7 +4288,6 @@ function getTextWorldMetrics(ent) {
   const totalW = contentW + pad * 2;
   const totalH = contentH + pad * 2;
 
-  // Compute offset based on anchor (左下, 中下, 右下, 左中, 中心, 右中, 左上, 中上, 右上)
   const anchor = ent.anchor || 'left-bottom';
   let offsetX = 0;
   let offsetY = 0;
@@ -4478,9 +4311,6 @@ function getTextWorldMetrics(ent) {
   };
 }
 
-/**
- * Hit-test a single entity at world point `pt` with tolerance `tolWorld`.
- */
 function hitTestEntity(ent, pt, tolWorld) {
   if (!ent) return Infinity;
   if (ent.type === 'line') {
@@ -4531,7 +4361,6 @@ function hitTestEntity(ent, pt, tolWorld) {
       const proj = projectPointOnSegment(pt, a, b, true);
       if (proj.dist <= tolWorld * 1.5) return proj.dist;
     }
-    // Check centroid proximity
     if (pts.length >= 3) {
       const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
       const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
@@ -4543,9 +4372,6 @@ function hitTestEntity(ent, pt, tolWorld) {
   return Infinity;
 }
 
-/**
- * Get draggable control grips for a selected entity
- */
 function getEntityGrips(ent) {
   if (!ent) return [];
   if (ent.type === 'line') {
@@ -4594,9 +4420,6 @@ function getEntityGrips(ent) {
   return [];
 }
 
-/**
- * Render the entire Jw_cad viewport onto the HTML5 Canvas
- */
 function renderCadViewport(ctx, state) {
   const {
     width,
@@ -4617,15 +4440,11 @@ function renderCadViewport(ctx, state) {
   } = state;
 
   ctx.save();
-  // Clear background
   ctx.fillStyle = bgTheme === 'light' ? '#ffffff' : bgTheme === 'navy' ? '#0b1528' : '#000000';
   ctx.fillRect(0, 0, width, height);
 
-  // Coordinate transform helpers:
-  // World (x, y) -> Screen (sx, sy) where World +Y is UP, +X is RIGHT
   const worldToScreen = (wx, wy, wz = 0) => {
     if (is25DMode) {
-      // 2.5D Isometric projection (Axonometric 30°/30°)
       const isoX = (wx - wy) * Math.cos(Math.PI / 6);
       const isoY = (wx + wy) * Math.sin(Math.PI / 6) + wz;
       return {
@@ -4639,15 +4458,13 @@ function renderCadViewport(ctx, state) {
     };
   };
 
-  // 1. Draw Grid & Origin Crosshair
   if (showGrid) {
     drawGridAndAxes(ctx, width, height, camera, bgTheme, worldToScreen, is25DMode);
   }
 
-  // 2. Draw Jw_cad Paper Frame (用紙枠: 紫点線)
   if (showPaperFrame) {
     const paperInfo = Object.values(JWW_PAPER_CODES).find((p) => p.name === doc.paperSize) || JWW_PAPER_CODES[3];
-    const scaleFactor = (doc.scale || 1) * 0.1; // Scaled world units
+    const scaleFactor = (doc.scale || 1) * 0.1;
     const pw = paperInfo.width * scaleFactor;
     const ph = paperInfo.height * scaleFactor;
     const p1 = worldToScreen(-pw / 2, -ph / 2);
@@ -4667,14 +4484,12 @@ function renderCadViewport(ctx, state) {
     ctx.closePath();
     ctx.stroke();
 
-    // Paper label in corner
     ctx.fillStyle = bgTheme === 'light' ? '#7e22ce' : '#c084fc';
     ctx.font = '10px monospace';
     ctx.fillText(`用紙: ${paperInfo.name} (${paperInfo.width}×${paperInfo.height}mm)  S=1/${doc.scale || 1}`, p4.x + 6, p4.y + 14);
     ctx.restore();
   }
 
-  // 3. Filter and Draw Entities by Layer Visibility
   const entities = doc.entities || [];
   for (const ent of entities) {
     const gIdx = ent.gLayer ?? 0;
@@ -4700,7 +4515,6 @@ function renderCadViewport(ctx, state) {
     });
   }
 
-  // 4. Draw Interactive Command Preview Entities
   for (const prev of previewEntities) {
     drawSingleEntity(ctx, prev, {
       worldToScreen,
@@ -4714,7 +4528,6 @@ function renderCadViewport(ctx, state) {
     });
   }
 
-  // 5. Draw Trim / Intersection Markers if in partial trim or fillet mode
   for (const tp of trimHighlightPoints) {
     const sp = worldToScreen(tp.x, tp.y);
     ctx.save();
@@ -4726,7 +4539,6 @@ function renderCadViewport(ctx, state) {
     ctx.restore();
   }
 
-  // 6. Draw Control Grips on Selected Entities
   if (selectedIds.size > 0 && !is25DMode) {
     for (const ent of entities) {
       if (!selectedIds.has(ent.id)) continue;
@@ -4744,14 +4556,12 @@ function renderCadViewport(ctx, state) {
     }
   }
 
-  // 7. Draw Right-Click Snap Marker (読取点プレビュー)
   if (snapPoint) {
     const sp = worldToScreen(snapPoint.x, snapPoint.y);
     ctx.save();
     ctx.strokeStyle = '#f43f5e';
     ctx.lineWidth = 2;
     ctx.setLineDash([]);
-    // Target ring + cross
     ctx.beginPath();
     ctx.arc(sp.x, sp.y, 8, 0, TWO_PI);
     ctx.moveTo(sp.x - 12, sp.y);
@@ -4760,7 +4570,6 @@ function renderCadViewport(ctx, state) {
     ctx.lineTo(sp.x, sp.y + 12);
     ctx.stroke();
 
-    // Label tag next to snap point
     const tagText = `R読取: ${snapPoint.label} (${snapPoint.x.toFixed(1)}, ${snapPoint.y.toFixed(1)})`;
     ctx.font = 'bold 11px monospace';
     const tw = ctx.measureText(tagText).width + 10;
@@ -4774,7 +4583,6 @@ function renderCadViewport(ctx, state) {
     ctx.restore();
   }
 
-  // 8. Draw Area Selection Box (範囲選択枠)
   if (selectionBox) {
     const s1 = worldToScreen(selectionBox.x1, selectionBox.y1);
     const s2 = worldToScreen(selectionBox.x2, selectionBox.y2);
@@ -4797,7 +4605,6 @@ function renderCadViewport(ctx, state) {
 
 function drawGridAndAxes(ctx, width, height, camera, bgTheme, worldToScreen, is25DMode) {
   ctx.save();
-  // Choose dynamic grid spacing based on camera.zoom
   let step = 50;
   if (camera.zoom > 4) step = 10;
   else if (camera.zoom > 1.5) step = 25;
@@ -4830,7 +4637,6 @@ function drawGridAndAxes(ctx, width, height, camera, bgTheme, worldToScreen, is2
     ctx.stroke();
   }
 
-  // Origin axes (0,0)
   const o = worldToScreen(0, 0, 0);
   ctx.strokeStyle = bgTheme === 'light' ? 'rgba(100, 116, 139, 0.6)' : 'rgba(100, 116, 139, 0.65)';
   ctx.lineWidth = 1;
@@ -4902,14 +4708,12 @@ function drawSingleEntity(ctx, ent, opts) {
       if (isFull) {
         ctx.arc(c.x, c.y, sr, 0, TWO_PI);
       } else {
-        // Note: Canvas Y is inverted relative to CAD +Y up, so screen angle is -worldAngle
         const sA = -(ent.startAngle || 0);
         const eA = -((ent.startAngle || 0) + (ent.sweepAngle || 0));
         ctx.arc(c.x, c.y, sr, sA, eA, (ent.sweepAngle || 0) >= 0);
       }
       ctx.stroke();
     } else {
-      // Sample polyline along arc for 2.5D or elliptical arcs
       const steps = 64;
       const sA = isFull ? 0 : (ent.startAngle || 0);
       const sweep = isFull ? TWO_PI : (ent.sweepAngle || TWO_PI);
@@ -4942,7 +4746,6 @@ function drawSingleEntity(ctx, ent, opts) {
     const sp = worldToScreen(ent.x, ent.y, 0);
     ctx.setLineDash([]);
     if (ent.isKariten) {
-      // Jw_cad 仮点 (magenta/pink X + dot marker)
       ctx.strokeStyle = isSelected ? '#f43f5e' : '#ff44ff';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
@@ -4996,7 +4799,7 @@ function drawTextOrTextboxEntity(ctx, ent, worldToScreen, camera, bgTheme, strok
   const screenH = m.totalH * camera.zoom;
   const screenPad = m.pad * camera.zoom;
   const screenOffX = m.offsetX * camera.zoom;
-  const screenOffY = -m.offsetY * camera.zoom - screenH; // Flip Y for screen space
+  const screenOffY = -m.offsetY * camera.zoom - screenH;
 
   ctx.save();
   ctx.translate(sp.x, sp.y);
@@ -5004,7 +4807,6 @@ function drawTextOrTextboxEntity(ctx, ent, worldToScreen, camera, bgTheme, strok
     ctx.rotate((-(ent.angleDeg || 0) * Math.PI) / 180);
   }
 
-  // Draw Textbox background & frame if enabled
   if (ent.isTextbox || ent.boxBorder || ent.boxFill) {
     if (ent.boxFill) {
       ctx.fillStyle = ent.boxFill;
@@ -5027,7 +4829,6 @@ function drawTextOrTextboxEntity(ctx, ent, worldToScreen, camera, bgTheme, strok
     ctx.strokeRect(screenOffX, screenOffY, screenW, screenH);
   }
 
-  // Draw text lines
   ctx.fillStyle = strokeColor;
   ctx.font = `${screenCharH.toFixed(1)}px "${ent.fontName || 'MS Gothic'}", monospace`;
   ctx.textBaseline = 'top';
@@ -5058,7 +4859,6 @@ function drawDimensionEntity(ctx, ent, worldToScreen, camera, bgTheme, strokeCol
   const sd1 = worldToScreen(dStart.x, dStart.y, 0);
   const sd2 = worldToScreen(dEnd.x, dEnd.y, 0);
 
-  // Extension lines (寸法補助線) for linear dimensions
   if (!ent.dimKind || ent.dimKind === 'linear') {
     ctx.beginPath();
     ctx.moveTo(sp1.x, sp1.y);
@@ -5068,13 +4868,11 @@ function drawDimensionEntity(ctx, ent, worldToScreen, camera, bgTheme, strokeCol
     ctx.stroke();
   }
 
-  // Main dimension line (寸法線)
   ctx.beginPath();
   ctx.moveTo(sd1.x, sd1.y);
   ctx.lineTo(sd2.x, sd2.y);
   ctx.stroke();
 
-  // Arrows & Endpoint ticks (Jw_cad red/cyan dots or open arrows)
   const angle = Math.atan2(sd2.y - sd1.y, sd2.x - sd1.x);
   const arrowLen = 7;
   const drawArrow = (x, y, dirAngle) => {
@@ -5093,7 +4891,6 @@ function drawDimensionEntity(ctx, ent, worldToScreen, camera, bgTheme, strokeCol
     drawArrow(sd2.x, sd2.y, angle);
   }
 
-  // Dimension value text
   const tPos = ent.textPos || { x: (dStart.x + dEnd.x) / 2, y: (dStart.y + dEnd.y) / 2 };
   const st = worldToScreen(tPos.x, tPos.y, 0);
   const fontPx = Math.max(10, (ent.fontSize || 10) * camera.zoom);
@@ -5114,51 +4911,38 @@ function drawDimensionEntity(ctx, ent, worldToScreen, camera, bgTheme, strokeCol
 
 
 // === app.js ===
-/**
- * Jw_cad Web Compatible - Main Application Controller
- * Implements Jw_cad UI, Layer Bar (0..F), Layer Group Bar ([0]..[F]),
- * Clock Menu (AM/PM), Right-click Snap (読取点), Textbox Editor,
- * Drawing/Editing Commands, and Native Binary JWW/JWC File I/O.
- */
 class JwCadWebApp {
   constructor() {
-    // Load Reference Tutorial Drawing by default so user immediately sees high-precision reproduction
     this.doc = buildTutorialSampleDoc(false);
     this.undoStack = [];
     this.redoStack = [];
 
-    // Viewport Camera
     this.camera = { x: 0, y: 10, zoom: 0.92 };
-    this.bgTheme = 'dark'; // 'dark' | 'light' | 'navy'
+    this.bgTheme = 'dark';
     this.showGrid = true;
     this.showPaperFrame = true;
     this.showAuxLines = true;
     this.is25DMode = false;
 
-    // Active Tool & Tool Parameters
     this.activeTool = 'line';
-    this.penColor = 2; // 線色2 (白/黒)
-    this.penStyle = 1; // 実線
+    this.penColor = 2;
+    this.penStyle = 1;
     this.penWidth = 2;
 
     this.toolParams = {
-      // Line
       ortho: false,
-      lineAngle: '', // '' = free, or number
-      lineLength: '', // '' = free, or number
+      lineAngle: '',
+      lineLength: '',
       doubleLine: false,
       doubleSpacing: 15,
-      // Rectangle (矩形)
       rectDim: '100,50',
       rectUseDim: false,
       rectAngle: 0,
-      rectAnchor: 'center', // 'left-bottom' | 'center' | 'left-top' | ...
-      // Circle/Arc (円・円弧)
-      circleMode: 'circle', // 'circle' | 'arc' | 'semi'
-      circleRadius: '', // '' = dynamic 2-click, or number e.g. '200'
+      rectAnchor: 'center',
+      circleMode: 'circle',
+      circleRadius: '',
       circleAspect: 100,
       circleTilt: 0,
-      // Text / Textbox (文字・テキストボックス)
       textContent: 'テキスト入力',
       textSizeX: 12,
       textSizeY: 12,
@@ -5171,29 +4955,22 @@ class JwCadWebApp {
       boxFill: 'rgba(16, 48, 36, 0.45)',
       boxPadding: 8,
       textAnchor: 'left-bottom',
-      // Dimension (寸法)
-      dimMode: 'linear', // 'linear' | 'diameter' | 'radius'
+      dimMode: 'linear',
       dimOrtho: true,
       dimAngle: 0,
       dimFontSize: 12,
-      // Erase (消去)
-      erasePartial: true, // 節間消し
-      // Chamfer / Fillet (面取)
-      chamferMode: 'fillet', // 'fillet' (丸面) | 'chamfer' (角面)
+      erasePartial: true,
+      chamferMode: 'fillet',
       chamferSize: 10,
-      // Point (点)
       pointKariten: true,
       pointIntersectionMode: false,
-      // Offset (複線)
       offsetDist: 50,
       offsetBothSides: false,
-      // Move / Copy (移動・複写)
       transformScaleX: 1,
       transformScaleY: 1,
       transformAngle: 0
     };
 
-    // Interactive Multi-step Command State
     this.cmdStep = 0;
     this.cmdPoints = [];
     this.cmdTargetEntity = null;
@@ -5201,31 +4978,28 @@ class JwCadWebApp {
     this.previewEntities = [];
     this.trimHighlightPoints = [];
 
-    // Selection & Manipulation State
     this.selectedIds = new Set();
     this.hoveredId = null;
-    this.activeGrip = null; // { entityId, gripId }
+    this.activeGrip = null;
     this.selectionBox = null;
 
-    // Cursor & Snap State
     this.cursorWorld = { x: 0, y: 0 };
     this.snapPoint = null;
     this.isPanning = false;
     this.panStartScreen = { x: 0, y: 0 };
     this.panStartCam = { x: 0, y: 0 };
 
-    // Clock Menu State (右ドラッグ / クロックメニュー)
     this.clockMenuState = {
       active: false,
       startX: 0,
       startY: 0,
       curX: 0,
       curY: 0,
-      button: 2, // 0=Left(AM), 2=Right(PM)
+      button: 2,
       selectedSlot: null
     };
 
-    this.activeDockTab = 'inspector'; // 'inspector' | 'layers' | 'tutorial'
+    this.activeDockTab = 'inspector';
   }
 
   init() {
@@ -5247,9 +5021,6 @@ class JwCadWebApp {
     this.zoomExtents();
   }
 
-  // =========================================================================
-  // Document & Undo/Redo Management
-  // =========================================================================
   pushUndoState() {
     const snapshot = JSON.stringify({
       entities: this.doc.entities,
@@ -5342,9 +5113,6 @@ class JwCadWebApp {
     });
   }
 
-  // =========================================================================
-  // Coordinate Transforms & Viewport Controls
-  // =========================================================================
   screenToWorld(sx, sy) {
     const rect = this.canvas.getBoundingClientRect();
     const cx = sx - rect.left;
@@ -5483,14 +5251,10 @@ class JwCadWebApp {
     if (guideEl && msg) guideEl.textContent = msg;
   }
 
-  // =========================================================================
-  // Command Switching & Control Bar Rendering
-  // =========================================================================
   setTool(toolName) {
     this.activeTool = toolName;
     this.resetCommandState();
 
-    // Highlight active tool button
     document.querySelectorAll('[data-tool]').forEach((btn) => {
       btn.classList.toggle('active', btn.getAttribute('data-tool') === toolName);
     });
@@ -5546,9 +5310,6 @@ class JwCadWebApp {
     this.updateStatusBar(prompts[this.activeTool] || 'コマンドを選択してください');
   }
 
-  /**
-   * Render Jw_cad Top Context-Sensitive Control Bar (コントロールバー)
-   */
   renderControlBar() {
     const bar = document.getElementById('jwControlBar');
     if (!bar) return;
@@ -5556,12 +5317,11 @@ class JwCadWebApp {
     const p = this.toolParams;
     let html = '';
 
-    // Pen Color & Line Style Selector (Always accessible on the left of Control Bar)
     const colorOptions = Object.entries(JWCAD_PEN_COLORS)
-      .map(([k, v]) => `<option value="${k}" ${Number(k) === this.penColor ? 'selected' : ''}>${v.name}</option>`)
+      .map(([k, v]) => `<option value="${escapeHtml(k)}" ${Number(k) === this.penColor ? 'selected' : ''}>${escapeHtml(v.name)}</option>`)
       .join('');
     const styleOptions = Object.entries(JWCAD_LINE_STYLES)
-      .map(([k, v]) => `<option value="${k}" ${Number(k) === this.penStyle ? 'selected' : ''}>${v.name}</option>`)
+      .map(([k, v]) => `<option value="${escapeHtml(k)}" ${Number(k) === this.penStyle ? 'selected' : ''}>${escapeHtml(v.name)}</option>`)
       .join('');
 
     html += `
@@ -5571,7 +5331,7 @@ class JwCadWebApp {
         <span class="jw-ctrl-label">線種</span>
         <select id="ctrlPenStyle" class="jw-input" style="width:94px">${styleOptions}</select>
         <span class="jw-ctrl-label">線幅</span>
-        <input id="ctrlPenWidth" type="number" min="1" max="10" value="${this.penWidth}" class="jw-input" style="width:42px" />
+        <input id="ctrlPenWidth" type="number" min="1" max="10" value="${Number(this.penWidth) || 1}" class="jw-input" style="width:42px" />
       </div>
     `;
 
@@ -5584,7 +5344,7 @@ class JwCadWebApp {
             <span>&lt;水平・垂直&gt;</span>
           </label>
           <span class="jw-ctrl-label">傾き=</span>
-          <input type="text" id="ctrlLineAngle" value="${p.lineAngle}" placeholder="無指定" class="jw-input" style="width:54px" />
+          <input type="text" id="ctrlLineAngle" value="${escapeHtml(p.lineAngle)}" placeholder="無指定" class="jw-input" style="width:54px" />
           <select id="ctrlLineAnglePreset" class="jw-input" style="width:58px">
             <option value="">角度</option>
             <option value="0">0°</option>
@@ -5596,7 +5356,7 @@ class JwCadWebApp {
             <option value="-45">-45°</option>
           </select>
           <span class="jw-ctrl-label">寸法=</span>
-          <input type="text" id="ctrlLineLength" value="${p.lineLength}" placeholder="自由長" class="jw-input" style="width:64px" />
+          <input type="text" id="ctrlLineLength" value="${escapeHtml(p.lineLength)}" placeholder="自由長" class="jw-input" style="width:64px" />
           <label class="jw-check-label">
             <input type="checkbox" id="ctrlDoubleLine" ${p.doubleLine ? 'checked' : ''} />
             <span>&lt;二重線&gt;</span>
@@ -5615,9 +5375,9 @@ class JwCadWebApp {
             <span>&lt;寸法指定配置&gt;</span>
           </label>
           <span class="jw-ctrl-label">寸法(W,H)=</span>
-          <input type="text" id="ctrlRectDim" value="${p.rectDim}" placeholder="100,50" class="jw-input" style="width:82px" />
+          <input type="text" id="ctrlRectDim" value="${escapeHtml(p.rectDim)}" placeholder="100,50" class="jw-input" style="width:82px" />
           <span class="jw-ctrl-label">傾き=</span>
-          <input type="number" id="ctrlRectAngle" value="${p.rectAngle}" class="jw-input" style="width:52px" />
+          <input type="number" id="ctrlRectAngle" value="${Number(p.rectAngle) || 0}" class="jw-input" style="width:52px" />
           <span class="jw-ctrl-label">基準点:</span>
           <select id="ctrlRectAnchor" class="jw-input" style="width:78px">
             <option value="center" ${p.rectAnchor === 'center' ? 'selected' : ''}>中心 (・)</option>
@@ -5646,12 +5406,12 @@ class JwCadWebApp {
             <span>&lt;半円&gt;</span>
           </label>
           <span class="jw-ctrl-label">半径=</span>
-          <input type="text" id="ctrlCircleRadius" value="${p.circleRadius}" placeholder="無指定(2点)" class="jw-input" style="width:76px" />
+          <input type="text" id="ctrlCircleRadius" value="${escapeHtml(p.circleRadius)}" placeholder="無指定(2点)" class="jw-input" style="width:76px" />
           <button class="jw-btn" data-quick-radius="200">R200</button>
           <button class="jw-btn" data-quick-radius="250">R250</button>
           <button class="jw-btn" data-quick-radius="">自由R</button>
           <span class="jw-ctrl-label">扁平率=</span>
-          <input type="number" id="ctrlCircleAspect" value="${p.circleAspect}" class="jw-input" style="width:52px" />%
+          <input type="number" id="ctrlCircleAspect" value="${Number(p.circleAspect) || 100}" class="jw-input" style="width:52px" />%
         </div>
       `;
     } else if (this.activeTool === 'text') {
@@ -5659,11 +5419,11 @@ class JwCadWebApp {
         <span class="jw-ctrl-badge">【文字 / テキストボックス】</span>
         <div class="jw-ctrl-group">
           <span class="jw-ctrl-label">文字列=</span>
-          <input type="text" id="ctrlTextContent" value="${p.textContent.replace(/\n/g, '\\n')}" class="jw-input" style="width:170px" />
+          <input type="text" id="ctrlTextContent" value="${escapeHtml(p.textContent.replace(/\n/g, '\\n'))}" class="jw-input" style="width:170px" />
           <span class="jw-ctrl-label">高(mm)=</span>
-          <input type="number" id="ctrlTextSize" value="${p.textSizeY}" min="1" max="200" class="jw-input" style="width:48px" />
+          <input type="number" id="ctrlTextSize" value="${Number(p.textSizeY) || 12}" min="1" max="200" class="jw-input" style="width:48px" />
           <span class="jw-ctrl-label">角度=</span>
-          <input type="number" id="ctrlTextAngle" value="${p.textAngle}" class="jw-input" style="width:48px" />
+          <input type="number" id="ctrlTextAngle" value="${Number(p.textAngle) || 0}" class="jw-input" style="width:48px" />
           <label class="jw-check-label">
             <input type="checkbox" id="ctrlIsTextbox" ${p.isTextbox ? 'checked' : ''} />
             <span>&lt;枠付テキストボックス&gt;</span>
@@ -5688,7 +5448,7 @@ class JwCadWebApp {
             <span>&lt;半径(R)&gt;</span>
           </label>
           <span class="jw-ctrl-label">傾き=</span>
-          <input type="number" id="ctrlDimAngle" value="${p.dimAngle}" class="jw-input" style="width:52px" />
+          <input type="number" id="ctrlDimAngle" value="${Number(p.dimAngle) || 0}" class="jw-input" style="width:52px" />
           <button class="jw-btn" data-dim-angle="0">0°(水平)</button>
           <button class="jw-btn" data-dim-angle="90">90°(垂直)</button>
           <button class="jw-btn" data-dim-angle="45">45°(斜め)</button>
@@ -5718,7 +5478,7 @@ class JwCadWebApp {
             <span>&lt;角面 (C面取)&gt;</span>
           </label>
           <span class="jw-ctrl-label">寸法=</span>
-          <input type="number" id="ctrlChamferSize" value="${p.chamferSize}" min="0.5" max="500" class="jw-input" style="width:58px" />
+          <input type="number" id="ctrlChamferSize" value="${Number(p.chamferSize) || 10}" min="0.5" max="500" class="jw-input" style="width:58px" />
           <button class="jw-btn" data-chamfer-size="10">10mm</button>
           <button class="jw-btn" data-chamfer-size="20">20mm</button>
           <button class="jw-btn" data-chamfer-size="5">5mm</button>
@@ -5743,7 +5503,7 @@ class JwCadWebApp {
         <span class="jw-ctrl-badge">【複線】</span>
         <div class="jw-ctrl-group">
           <span class="jw-ctrl-label">複線間隔=</span>
-          <input type="number" id="ctrlOffsetDist" value="${p.offsetDist}" class="jw-input" style="width:68px" />
+          <input type="number" id="ctrlOffsetDist" value="${Number(p.offsetDist) || 50}" class="jw-input" style="width:68px" />
           <label class="jw-check-label">
             <input type="checkbox" id="ctrlOffsetBoth" ${p.offsetBothSides ? 'checked' : ''} />
             <span>&lt;両側複線&gt;</span>
@@ -5755,10 +5515,10 @@ class JwCadWebApp {
         <span class="jw-ctrl-badge">【${this.activeTool === 'move' ? '移動' : '複写'}】</span>
         <div class="jw-ctrl-group">
           <span class="jw-ctrl-label">倍率(X,Y)=</span>
-          <input type="number" id="ctrlScaleX" step="0.1" value="${p.transformScaleX}" class="jw-input" style="width:48px" />
-          <input type="number" id="ctrlScaleY" step="0.1" value="${p.transformScaleY}" class="jw-input" style="width:48px" />
+          <input type="number" id="ctrlScaleX" step="0.1" value="${Number(p.transformScaleX) || 1}" class="jw-input" style="width:48px" />
+          <input type="number" id="ctrlScaleY" step="0.1" value="${Number(p.transformScaleY) || 1}" class="jw-input" style="width:48px" />
           <span class="jw-ctrl-label">回転角=</span>
-          <input type="number" id="ctrlRotAngle" value="${p.transformAngle}" class="jw-input" style="width:52px" />°
+          <input type="number" id="ctrlRotAngle" value="${Number(p.transformAngle) || 0}" class="jw-input" style="width:52px" />°
         </div>
       `;
     } else {
@@ -5943,9 +5703,6 @@ class JwCadWebApp {
     }
   }
 
-  // =========================================================================
-  // Authentic Jw_cad Layer Bar (0..F) & Layer Group Bar ([0]..[F])
-  // =========================================================================
   renderLayerBars() {
     const groupContainer = document.getElementById('layerGroupBarContainer');
     const layerContainer = document.getElementById('layerBarContainer');
@@ -5955,7 +5712,6 @@ class JwCadWebApp {
     const activeGrp = this.doc.layerGroups?.[activeGroupIdx];
     const activeLayerIdx = activeGrp?.activeLayer ?? 0;
 
-    // Count entities per group and per layer
     const groupCounts = new Array(16).fill(0);
     const layerCounts = new Array(16).fill(0);
     for (const e of this.doc.entities || []) {
@@ -5965,17 +5721,19 @@ class JwCadWebApp {
       if (g === activeGroupIdx) layerCounts[l]++;
     }
 
-    // 1. Layer Group Bar [0]..[F]
     let grpHtml = '';
     for (let g = 0; g < 16; g++) {
       const grp = this.doc.layerGroups[g];
       const hex = g.toString(16).toUpperCase();
       const isWrite = g === activeGroupIdx;
       const hasData = groupCounts[g] > 0;
+      const safeName = escapeHtml(grp.name);
+      const safeScale = Number(grp.scale) || 100;
+      const safeState = [0, 1, 2].includes(grp.state) ? grp.state : 2;
       grpHtml += `
-        <div class="jw-layer-btn state-${grp.state} ${isWrite ? 'write-active' : ''}"
+        <div class="jw-layer-btn state-${safeState} ${isWrite ? 'write-active' : ''}"
              data-gidx="${g}"
-             title="レイヤグループ [${hex}] ${grp.name} (S=1/${grp.scale}) | 左クリック:表示切替 / 右クリック:書込グループ指定">
+             title="レイヤグループ [${hex}] ${safeName} (S=1/${safeScale}) | 左クリック:表示切替 / 右クリック:書込グループ指定">
           <div class="jw-layer-state-bar"></div>
           ${hasData ? '<div class="jw-layer-has-data"></div>' : ''}
           <span class="jw-layer-hex">${hex}</span>
@@ -5984,17 +5742,18 @@ class JwCadWebApp {
     }
     groupContainer.innerHTML = grpHtml;
 
-    // 2. Layer Bar 0..F
     let lyrHtml = '';
     for (let l = 0; l < 16; l++) {
       const lyr = activeGrp.layers[l];
       const hex = l.toString(16).toUpperCase();
       const isWrite = l === activeLayerIdx;
       const hasData = layerCounts[l] > 0;
+      const safeName = escapeHtml(lyr.name);
+      const safeState = [0, 1, 2].includes(lyr.state) ? lyr.state : 2;
       lyrHtml += `
-        <div class="jw-layer-btn state-${lyr.state} ${isWrite ? 'write-active' : ''}"
+        <div class="jw-layer-btn state-${safeState} ${isWrite ? 'write-active' : ''}"
              data-lidx="${l}"
-             title="レイヤ ${hex}: ${lyr.name} (${layerCounts[l]}要素) | 左クリック:表示/非表示切替 / 右クリック:書込レイヤ指定">
+             title="レイヤ ${hex}: ${safeName} (${layerCounts[l]}要素) | 左クリック:表示/非表示切替 / 右クリック:書込レイヤ指定">
           <div class="jw-layer-state-bar"></div>
           ${hasData ? '<div class="jw-layer-has-data"></div>' : ''}
           <span class="jw-layer-hex">${hex}</span>
@@ -6003,7 +5762,6 @@ class JwCadWebApp {
     }
     layerContainer.innerHTML = lyrHtml;
 
-    // Bind Jw_cad Left-Click (cycle visibility) and Right-Click (set Write Layer)
     groupContainer.querySelectorAll('[data-gidx]').forEach((el) => {
       const g = Number(el.getAttribute('data-gidx'));
       el.addEventListener('click', (e) => {
@@ -6013,7 +5771,6 @@ class JwCadWebApp {
           this.doc.scale = this.doc.layerGroups[g].scale || this.doc.scale;
           this.updateStatusBar(`レイヤグループ [${g.toString(16).toUpperCase()}] (${this.doc.layerGroups[g].name}) に切り替えました`);
         } else {
-          // Cycle state 2 -> 1 -> 0 -> 2
           const cur = this.doc.layerGroups[g].state;
           this.doc.layerGroups[g].state = cur === 2 ? 1 : cur === 1 ? 0 : 2;
         }
@@ -6038,7 +5795,6 @@ class JwCadWebApp {
       el.addEventListener('click', (e) => {
         e.preventDefault();
         const lyr = activeGrp.layers[l];
-        // Jw_cad behavior: Left-clicking layer button cycles state (表示・編集可能 -> 表示のみ -> 非表示 -> 表示・編集可能)
         lyr.state = lyr.state === 2 ? 0 : lyr.state === 0 ? 1 : 2;
         const stateNames = ['非表示', '表示のみ(読取可)', '表示・編集可能'];
         this.updateStatusBar(`レイヤ [${l.toString(16).toUpperCase()}: ${lyr.name}] を「${stateNames[lyr.state]}」に切り替えました`);
@@ -6048,9 +5804,8 @@ class JwCadWebApp {
       });
       el.addEventListener('contextmenu', (e) => {
         e.preventDefault();
-        // Jw_cad behavior: Right-clicking layer button sets it as the Active Write Layer!
         activeGrp.activeLayer = l;
-        activeGrp.layers[l].state = 2; // Ensure write layer is visible and editable
+        activeGrp.layers[l].state = 2;
         this.doc.activeLayer = l;
         this.updateStatusBar(`書込レイヤを [${l.toString(16).toUpperCase()}: ${activeGrp.layers[l].name}] に設定しました（右クリック切替）`);
         this.renderLayerBars();
@@ -6059,16 +5814,12 @@ class JwCadWebApp {
       });
     });
 
-    // Sync Paper Size & Scale selectors in bottom bar
     const paperSel = document.getElementById('paperSizeSelect');
     if (paperSel) paperSel.value = this.doc.paperSize || 'A3';
     const scaleSel = document.getElementById('scaleSelect');
     if (scaleSel) scaleSel.value = String(this.doc.scale || 5);
   }
 
-  // =========================================================================
-  // Canvas Mouse & Wheel Interaction (Left=Free, Right=Snap, Drag=ClockMenu)
-  // =========================================================================
   bindCanvasEvents() {
     const c = this.canvas;
 
@@ -6077,7 +5828,6 @@ class JwCadWebApp {
     c.addEventListener('mousedown', (e) => {
       const worldPt = this.screenToWorld(e.clientX, e.clientY);
 
-      // Middle button or Shift+Left-Click or Spacebar -> Pan Viewport
       if (e.button === 1 || (e.button === 0 && (e.shiftKey || this.spacePressed))) {
         this.isPanning = true;
         this.panStartScreen = { x: e.clientX, y: e.clientY };
@@ -6086,7 +5836,6 @@ class JwCadWebApp {
         return;
       }
 
-      // Right mouse button down: Track potential Clock Menu drag vs Right-Click Snap
       if (e.button === 2) {
         this.clockMenuState = {
           active: false,
@@ -6101,7 +5850,6 @@ class JwCadWebApp {
         return;
       }
 
-      // Left mouse button down (button === 0)
       if (e.button === 0) {
         this.handleCanvasLeftDown(worldPt, e);
       }
@@ -6124,7 +5872,6 @@ class JwCadWebApp {
         return;
       }
 
-      // Check if Right-drag Clock Menu threshold exceeded
       if (this.clockMenuState.down) {
         const dragDist = Math.hypot(e.clientX - this.clockMenuState.startX, e.clientY - this.clockMenuState.startY);
         this.clockMenuState.curX = e.clientX;
@@ -6141,7 +5888,6 @@ class JwCadWebApp {
       const worldPt = this.screenToWorld(e.clientX, e.clientY);
       this.cursorWorld = worldPt;
 
-      // Update Coordinate Readout in Status Bar
       const coordEl = document.getElementById('statusCoordsText');
       if (coordEl) {
         let extra = '';
@@ -6154,12 +5900,10 @@ class JwCadWebApp {
         coordEl.textContent = `X: ${worldPt.x.toFixed(1)}  Y: ${worldPt.y.toFixed(1)}${extra}`;
       }
 
-      // Update Right-click Snap Candidate (読取点)
       const snapTolWorld = 18 / this.camera.zoom;
       const visEntities = this.getVisibleEntities(false);
       this.snapPoint = findBestSnapPoint(worldPt, visEntities, snapTolWorld);
 
-      // Update hovered entity
       const hitTolWorld = 10 / this.camera.zoom;
       let bestEnt = null;
       let bestDist = Infinity;
@@ -6172,7 +5916,6 @@ class JwCadWebApp {
       }
       this.hoveredId = bestEnt ? bestEnt.id : null;
 
-      // Handle Grip Dragging in Select Mode
       if (this.activeGrip) {
         const targetPt = e.ctrlKey && this.snapPoint ? { x: this.snapPoint.x, y: this.snapPoint.y } : worldPt;
         this.applyGripDrag(this.activeGrip, targetPt);
@@ -6181,7 +5924,6 @@ class JwCadWebApp {
         return;
       }
 
-      // Handle Selection Box Dragging
       if (this.selectionBox) {
         this.selectionBox.x2 = worldPt.x;
         this.selectionBox.y2 = worldPt.y;
@@ -6189,7 +5931,6 @@ class JwCadWebApp {
         return;
       }
 
-      // Update Interactive Preview for active drawing/editing command
       this.updateCommandPreview(worldPt);
       this.requestRedraw();
     });
@@ -6212,7 +5953,6 @@ class JwCadWebApp {
         return;
       }
 
-      // Right mouse button release: either execute Clock Menu command or Right-Click Snap!
       if (e.button === 2 && this.clockMenuState.down) {
         const wasClock = this.clockMenuState.active;
         const selectedSlot = this.clockMenuState.selectedSlot;
@@ -6229,7 +5969,6 @@ class JwCadWebApp {
       }
     });
 
-    // Double-click on Canvas: Edit Text/Textbox directly or finish Polyline/Solid
     c.addEventListener('dblclick', (e) => {
       const worldPt = this.screenToWorld(e.clientX, e.clientY);
       if (this.activeTool === 'polyline' && this.cmdPoints.length >= 2) {
@@ -6247,7 +5986,6 @@ class JwCadWebApp {
       }
     });
 
-    // Mouse Wheel Zoom centered at cursor (Jw_cad 基本設定: マウスホイール拡大縮小)
     c.addEventListener(
       'wheel',
       (e) => {
@@ -6265,11 +6003,7 @@ class JwCadWebApp {
     );
   }
 
-  /**
-   * Left-Click (任意点指定 / 図形選択)
-   */
   handleCanvasLeftDown(worldPt, e) {
-    // In Select mode: check control grips first, then entity hit, else start selection box
     if (this.activeTool === 'select') {
       const gripTol = 10 / this.camera.zoom;
       for (const ent of this.getVisibleEntities(true)) {
@@ -6304,13 +6038,9 @@ class JwCadWebApp {
       return;
     }
 
-    // For all other tools, Left-Click supplies a Free Coordinate Point (or selects an entity)
     this.handleCommandPointOrEntity(worldPt, false);
   }
 
-  /**
-   * Right-Click (Jw_cad 読取点指定: 交点・端点・中心点・中点を自動スナップ)
-   */
   handleCanvasRightClick(worldPt, _e) {
     const snapTolWorld = 24 / this.camera.zoom;
     const snap = findBestSnapPoint(worldPt, this.getVisibleEntities(false), snapTolWorld);
@@ -6335,9 +6065,6 @@ class JwCadWebApp {
     return best;
   }
 
-  // =========================================================================
-  // Core CAD Command Execution State Machine
-  // =========================================================================
   handleCommandPointOrEntity(pt, isRightClick) {
     const p = this.toolParams;
     const { gLayer, layer } = this.getActiveWriteGroupAndLayer();
@@ -6349,9 +6076,7 @@ class JwCadWebApp {
       penWidth: this.penWidth
     };
 
-    // 1. LINE (線)
     if (this.activeTool === 'line') {
-      // If fixed angle & fixed length are both set, 1 click places the line!
       if (this.cmdStep === 0) {
         this.cmdPoints = [pt];
         this.cmdStep = 1;
@@ -6406,7 +6131,6 @@ class JwCadWebApp {
       return;
     }
 
-    // 2. POLYLINE (連続線)
     if (this.activeTool === 'polyline') {
       if (this.cmdStep === 0) {
         this.cmdPoints = [pt];
@@ -6435,12 +6159,9 @@ class JwCadWebApp {
       return;
     }
 
-    // 3. RECTANGLE (矩形)
     if (this.activeTool === 'rect') {
       const fixedDims = this.parseRectDimensions(p.rectDim);
       if (p.rectUseDim && fixedDims) {
-        // Jw_cad Fixed Dimension Rectangle:
-        // Step 0: Click reference point -> Step 1: Click to confirm placement (or immediate if right-clicked/confirmed)
         if (this.cmdStep === 0) {
           this.cmdPoints = [pt];
           this.cmdStep = 1;
@@ -6456,7 +6177,6 @@ class JwCadWebApp {
           this.updateStatusBar(`矩形 (${fixedDims.w}×${fixedDims.h}) を配置しました`);
         }
       } else {
-        // Dynamic 2-corner rectangle
         if (this.cmdStep === 0) {
           this.cmdPoints = [pt];
           this.cmdStep = 1;
@@ -6495,11 +6215,9 @@ class JwCadWebApp {
       return;
     }
 
-    // 4. CIRCLE / ARC (円・円弧)
     if (this.activeTool === 'circle') {
       const fixedR = Number(p.circleRadius);
       if (p.circleMode === 'circle' && fixedR > 0) {
-        // 1-click placement when radius is specified (exact Jw_cad tutorial workflow: 半径=200 -> 交点を右クリック!)
         this.pushUndoState();
         this.doc.entities.push({
           id: this.nextEntityId(),
@@ -6546,7 +6264,6 @@ class JwCadWebApp {
           this.renderDockPanel();
         }
       } else if (p.circleMode === 'semi') {
-        // Semicircle from 2 diameter endpoints
         if (this.cmdStep === 0) {
           this.cmdPoints = [pt];
           this.cmdStep = 1;
@@ -6577,7 +6294,6 @@ class JwCadWebApp {
           this.renderDockPanel();
         }
       } else {
-        // 3-step Arc: Center -> Start -> End
         if (this.cmdStep === 0) {
           this.cmdPoints = [pt];
           this.cmdStep = 1;
@@ -6615,20 +6331,16 @@ class JwCadWebApp {
       return;
     }
 
-    // 5. TEXT / TEXTBOX (文字・テキストボックス)
     if (this.activeTool === 'text') {
-      // Check if user clicked an existing text entity to edit it
       const existing = this.findTopEditableEntityAt(pt);
       if (existing && existing.type === 'text') {
         this.openTextboxModal(existing, pt);
         return;
       }
-      // Open Textbox Editor Modal pre-filled at clicked coordinate
       this.openTextboxModal(null, pt);
       return;
     }
 
-    // 6. DIMENSION (寸法: 長さ / 直径φ / 半径R)
     if (this.activeTool === 'dim') {
       if (p.dimMode === 'diameter' || p.dimMode === 'radius') {
         const hit = this.findTopEditableEntityAt(pt);
@@ -6675,7 +6387,6 @@ class JwCadWebApp {
         return;
       }
 
-      // Linear Dimension: Point 1 -> Point 2 -> Dimension Line Position
       if (this.cmdStep === 0) {
         this.cmdPoints = [pt];
         this.cmdStep = 1;
@@ -6700,7 +6411,6 @@ class JwCadWebApp {
       return;
     }
 
-    // 7. POINT / INTERSECTION TEMP POINT (点・仮点・交点)
     if (this.activeTool === 'point') {
       if (p.pointIntersectionMode) {
         const hit = this.findTopEditableEntityAt(pt);
@@ -6717,7 +6427,6 @@ class JwCadWebApp {
           if (isects.length === 0) {
             this.updateStatusBar('選択された2つの図形に交点がありません');
           } else {
-            // Pick intersection closest to second click
             isects.sort((a, b) => dist(a, pt) - dist(b, pt));
             const bestIsect = isects[0];
             this.pushUndoState();
@@ -6757,7 +6466,6 @@ class JwCadWebApp {
       return;
     }
 
-    // 8. SOLID (ソリッド塗り図形)
     if (this.activeTool === 'solid') {
       this.cmdPoints.push(pt);
       if (this.cmdPoints.length === 4) {
@@ -6779,40 +6487,32 @@ class JwCadWebApp {
       return;
     }
 
-    // 9. ERASE / PARTIAL TRIM (消去・節間消し)
     if (this.activeTool === 'erase') {
       this.handleEraseCommand(pt, isRightClick);
       return;
     }
 
-    // 10. CHAMFER / FILLET (面取: 丸面・角面)
     if (this.activeTool === 'fillet') {
       this.handleFilletCommand(pt);
       return;
     }
 
-    // 11. OFFSET (複線)
     if (this.activeTool === 'offset') {
       this.handleOffsetCommand(pt);
       return;
     }
 
-    // 12. MOVE / COPY (移動・複写)
     if (this.activeTool === 'move' || this.activeTool === 'copy') {
       this.handleMoveOrCopyCommand(pt);
       return;
     }
 
-    // 13. TRIM / EXTEND (伸縮)
     if (this.activeTool === 'trim') {
       this.handleTrimExtendCommand(pt, isRightClick);
       return;
     }
   }
 
-  /**
-   * Handle Jw_cad [消去] with both whole-entity delete and <節間消し> (intersection-to-intersection partial erase)
-   */
   handleEraseCommand(pt, isRightClick) {
     if (!this.toolParams.erasePartial) {
       const hit = this.findTopEditableEntityAt(pt);
@@ -6828,9 +6528,6 @@ class JwCadWebApp {
       return;
     }
 
-    // <節間消し> Mode:
-    // Supports BOTH:
-    // 1. Clicking an entity -> if right-clicked or only 1 segment exists, or clicking 2 intersection points on the entity (exact Jw_cad tutorial workflow!)
     if (this.cmdStep === 0) {
       const hit = this.findTopEditableEntityAt(pt);
       if (!hit) {
@@ -6838,8 +6535,6 @@ class JwCadWebApp {
         return;
       }
 
-      // If user right-clicks a line directly in tutorial ("矩形の下の水平線を右クリックし、消去します"),
-      // or if the entity has no intersections, delete or auto-section-trim immediately!
       const vis = this.getVisibleEntities(false);
       const isects = findAllIntersectionsOnEntity(hit, vis);
 
@@ -6853,7 +6548,6 @@ class JwCadWebApp {
         return;
       }
 
-      // If it's a Line with 1 intersection, trim the side that was clicked immediately, or let user pick 2 points
       if (hit.type === 'line' && isects.length === 1) {
         const ix = isects[0];
         const projClick = projectPointOnSegment(pt, { x: hit.x1, y: hit.y1 }, { x: hit.x2, y: hit.y2 }, true);
@@ -6870,16 +6564,14 @@ class JwCadWebApp {
         return;
       }
 
-      // Enter 2-point intersection selection on `hit` (matches tutorial: "円を選択し、右の交点で右クリック、左の交点で右クリックし、交点の間を消去します")
       this.cmdTargetEntity = hit;
-      this.cmdPoints = [pt]; // Store initial click hint on entity
+      this.cmdPoints = [pt];
       this.trimHighlightPoints = isects;
       this.cmdStep = 1;
       this.requestRedraw();
       this.updateStatusBar(`図形 [${hit.id}] を選択 (${isects.length}交点検出) — 消去区間の1点目(交点付近を右クリック)を指示、またはもう一度同じ場所をクリックで自動節間消し`);
     } else if (this.cmdStep === 1) {
       const target = this.cmdTargetEntity;
-      // If user clicked very close to the initial click without right-clicking an intersection, perform automatic section erase between nearest intersections!
       if (!isRightClick && dist(pt, this.cmdPoints[0]) < 15 / this.camera.zoom) {
         this.autoTrimSectionAtClick(target, pt);
         this.resetCommandState();
@@ -6959,9 +6651,6 @@ class JwCadWebApp {
     this.doc.entities.splice(idx, 1, ...formatted);
   }
 
-  /**
-   * Handle Jw_cad [面取] (Fillet <丸面> & Chamfer <角面>) for Line-Line and Line-Circle/Arc!
-   */
   handleFilletCommand(pt) {
     const hit = this.findTopEditableEntityAt(pt);
     if (!hit || (hit.type !== 'line' && hit.type !== 'circle' && hit.type !== 'arc')) {
@@ -7042,9 +6731,6 @@ class JwCadWebApp {
     }
   }
 
-  /**
-   * Handle Jw_cad [複線] (Offset Line / Circle)
-   */
   handleOffsetCommand(pt) {
     const d = Number(this.toolParams.offsetDist) || 50;
     const { gLayer, layer } = this.getActiveWriteGroupAndLayer();
@@ -7113,9 +6799,6 @@ class JwCadWebApp {
     return out;
   }
 
-  /**
-   * Handle Jw_cad [移動] & [複写]
-   */
   handleMoveOrCopyCommand(pt) {
     if (this.selectedIds.size === 0) {
       const hit = this.findTopEditableEntityAt(pt);
@@ -7154,7 +6837,6 @@ class JwCadWebApp {
       if (!isCopy) {
         this.resetCommandState();
       } else {
-        // Allow multiple consecutive copies in Copy mode!
         this.updateStatusBar('複写を配置しました — 続けて別の位置をクリックすると連続複写できます (Escで終了)');
       }
       this.renderLayerBars();
@@ -7214,9 +6896,6 @@ class JwCadWebApp {
     return clone;
   }
 
-  /**
-   * Handle Jw_cad [伸縮] (Trim / Extend line to point or boundary line)
-   */
   handleTrimExtendCommand(pt, isRightClick) {
     const hit = this.findTopEditableEntityAt(pt);
     if (this.cmdStep === 0) {
@@ -7272,9 +6951,6 @@ class JwCadWebApp {
     }
   }
 
-  // =========================================================================
-  // Preview Ghost Generation During Mouse Move
-  // =========================================================================
   updateCommandPreview(worldPt) {
     this.previewEntities = [];
     const p = this.toolParams;
@@ -7382,7 +7058,6 @@ class JwCadWebApp {
 
     if (p.lineAngle !== '' && Number.isFinite(Number(p.lineAngle))) {
       angleRad = degToRad(Number(p.lineAngle));
-      // Project cursor along that angle to determine sign unless length is fixed
       const dirX = Math.cos(angleRad);
       const dirY = Math.sin(angleRad);
       const dot = dx * dirX + dy * dirY;
@@ -7460,7 +7135,6 @@ class JwCadWebApp {
     const p = this.toolParams;
     let angleDeg = Number(p.dimAngle) || 0;
     if (p.dimOrtho && angleDeg === 0) {
-      // Auto-choose horizontal vs vertical based on where user placed dimPos relative to p1..p2
       const dx = Math.abs(p2.x - p1.x);
       const dy = Math.abs(p2.y - p1.y);
       const midX = (p1.x + p2.x) / 2;
@@ -7519,9 +7193,6 @@ class JwCadWebApp {
     };
   }
 
-  // =========================================================================
-  // Grip Manipulation & Area Selection
-  // =========================================================================
   applyGripDrag(gripInfo, targetPt) {
     const ent = this.doc.entities.find((e) => e.id === gripInfo.entityId);
     if (!ent) return;
@@ -7616,9 +7287,6 @@ class JwCadWebApp {
     this.updateStatusBar(`選択中の ${count} 要素を削除しました`);
   }
 
-  // =========================================================================
-  // Jw_cad Clock Menu (クロックメニュー)
-  // =========================================================================
   updateClockMenuUI() {
     const el = document.getElementById('jwClockMenu');
     if (!el) return;
@@ -7628,7 +7296,6 @@ class JwCadWebApp {
 
     const dx = this.clockMenuState.curX - this.clockMenuState.startX;
     const dy = this.clockMenuState.curY - this.clockMenuState.startY;
-    // Compute clock hour (12 = top, 3 = right, 6 = bottom, 9 = left)
     let deg = (Math.atan2(dx, -dy) * 180) / Math.PI;
     if (deg < 0) deg += 360;
     let hour = Math.round(deg / 30);
@@ -7666,9 +7333,6 @@ class JwCadWebApp {
     }
   }
 
-  // =========================================================================
-  // Right Dock Panel (1: 属性・座標修正 / 2: レイヤ管理 / 3: キャド研チュートリアル再現)
-  // =========================================================================
   renderDockPanel() {
     const body = document.getElementById('jwDockBody');
     if (!body) return;
@@ -7696,11 +7360,11 @@ class JwCadWebApp {
       body.innerHTML = `
         <div class="jw-prop-card">
           <div class="jw-prop-title">図面・書込ステータス</div>
-          <div class="jw-prop-row"><label>ファイル名</label><span><b>${this.doc.title || '無題.jww'}</b></span></div>
-          <div class="jw-prop-row"><label>形式</label><span>${this.doc.format || 'JWW'} (Ver.${this.doc.version || 700})</span></div>
-          <div class="jw-prop-row"><label>図面サイズ / 縮尺</label><span>${this.doc.paperSize} / S=1/${this.doc.scale}</span></div>
-          <div class="jw-prop-row"><label>書込レイヤグループ</label><span>[${gLayer.toString(16).toUpperCase()}] ${grp?.name || ''}</span></div>
-          <div class="jw-prop-row"><label>書込レイヤ</label><span style="color:#dc2626;font-weight:700">[${layer.toString(16).toUpperCase()}] ${lyr?.name || ''}</span></div>
+          <div class="jw-prop-row"><label>ファイル名</label><span><b>${escapeHtml(this.doc.title || '無題.jww')}</b></span></div>
+          <div class="jw-prop-row"><label>形式</label><span>${escapeHtml(this.doc.format || 'JWW')} (Ver.${Number(this.doc.version) || 700})</span></div>
+          <div class="jw-prop-row"><label>図面サイズ / 縮尺</label><span>${escapeHtml(this.doc.paperSize)} / S=1/${Number(this.doc.scale) || 1}</span></div>
+          <div class="jw-prop-row"><label>書込レイヤグループ</label><span>[${gLayer.toString(16).toUpperCase()}] ${escapeHtml(grp?.name || '')}</span></div>
+          <div class="jw-prop-row"><label>書込レイヤ</label><span style="color:#dc2626;font-weight:700">[${layer.toString(16).toUpperCase()}] ${escapeHtml(lyr?.name || '')}</span></div>
           <div class="jw-prop-row"><label>総図形要素数</label><span>${this.doc.entities.length} 件</span></div>
         </div>
 
@@ -7737,14 +7401,14 @@ class JwCadWebApp {
     const layerOpts = Array.from({ length: 16 }, (_, i) => {
       const hex = i.toString(16).toUpperCase();
       const nm = this.doc.layerGroups?.[ent.gLayer ?? 0]?.layers?.[i]?.name || `レイヤ${hex}`;
-      return `<option value="${i}" ${(ent.layer ?? 0) === i ? 'selected' : ''}>[${hex}] ${nm}</option>`;
+      return `<option value="${i}" ${(ent.layer ?? 0) === i ? 'selected' : ''}>[${hex}] ${escapeHtml(nm)}</option>`;
     }).join('');
 
     const colorOpts = Object.entries(JWCAD_PEN_COLORS)
-      .map(([k, v]) => `<option value="${k}" ${Number(k) === (ent.penColor || 2) ? 'selected' : ''}>${v.name}</option>`)
+      .map(([k, v]) => `<option value="${escapeHtml(k)}" ${Number(k) === (ent.penColor || 2) ? 'selected' : ''}>${escapeHtml(v.name)}</option>`)
       .join('');
     const styleOpts = Object.entries(JWCAD_LINE_STYLES)
-      .map(([k, v]) => `<option value="${k}" ${Number(k) === (ent.penStyle || 1) ? 'selected' : ''}>${v.name}</option>`)
+      .map(([k, v]) => `<option value="${escapeHtml(k)}" ${Number(k) === (ent.penStyle || 1) ? 'selected' : ''}>${escapeHtml(v.name)}</option>`)
       .join('');
 
     let geomHtml = '';
@@ -7773,24 +7437,24 @@ class JwCadWebApp {
         <div class="jw-prop-title">文字・テキストボックス (CDataMoji)</div>
         <div style="margin-bottom:6px;">
           <label style="font-size:11px;font-weight:700;display:block;margin-bottom:2px;">テキスト内容 (複数行可):</label>
-          <textarea id="propTextValue" class="jw-prop-textarea">${ent.text || ''}</textarea>
+          <textarea id="propTextValue" class="jw-prop-textarea">${escapeHtml(ent.text || '')}</textarea>
         </div>
         <div class="jw-prop-row"><label>基点 X</label><input type="number" step="1" id="propTX" value="${ent.x.toFixed(1)}" /></div>
         <div class="jw-prop-row"><label>基点 Y</label><input type="number" step="1" id="propTY" value="${ent.y.toFixed(1)}" /></div>
         <div class="jw-prop-row"><label>文字高 (mm)</label><input type="number" step="0.5" min="1" id="propTSize" value="${(ent.sizeY || ent.fontSize || 10).toFixed(1)}" /></div>
-        <div class="jw-prop-row"><label>角度 (°)</label><input type="number" step="5" id="propTAngle" value="${ent.angleDeg || 0}" /></div>
+        <div class="jw-prop-row"><label>角度 (°)</label><input type="number" step="5" id="propTAngle" value="${Number(ent.angleDeg) || 0}" /></div>
         <div class="jw-prop-row">
           <label>枠付ボックス</label>
           <input type="checkbox" id="propIsTextbox" ${ent.isTextbox || ent.boxBorder ? 'checked' : ''} />
         </div>
-        <div class="jw-prop-row"><label>内余白 (mm)</label><input type="number" step="1" min="0" id="propBoxPad" value="${ent.boxPadding ?? 6}" /></div>
+        <div class="jw-prop-row"><label>内余白 (mm)</label><input type="number" step="1" min="0" id="propBoxPad" value="${Number(ent.boxPadding ?? 6)}" /></div>
         <button id="propOpenFullTbModal" class="jw-btn jw-btn-primary" style="width:100%;margin-top:4px;">詳細テキストボックス設定を開く</button>
       `;
     } else if (ent.type === 'dimension') {
       geomHtml = `
         <div class="jw-prop-title">寸法図形 (CDataSunpou) 修正</div>
-        <div class="jw-prop-row"><label>表示寸法値</label><input type="text" id="propDimText" value="${ent.text || ''}" /></div>
-        <div class="jw-prop-row"><label>文字サイズ</label><input type="number" step="0.5" id="propDimFont" value="${ent.fontSize || 12}" /></div>
+        <div class="jw-prop-row"><label>表示寸法値</label><input type="text" id="propDimText" value="${escapeHtml(ent.text || '')}" /></div>
+        <div class="jw-prop-row"><label>文字サイズ</label><input type="number" step="0.5" id="propDimFont" value="${Number(ent.fontSize) || 12}" /></div>
         <div class="jw-prop-row"><label>文字位置 X</label><input type="number" step="1" id="propDimTX" value="${(ent.textPos?.x || 0).toFixed(1)}" /></div>
         <div class="jw-prop-row"><label>文字位置 Y</label><input type="number" step="1" id="propDimTY" value="${(ent.textPos?.y || 0).toFixed(1)}" /></div>
       `;
@@ -7806,13 +7470,13 @@ class JwCadWebApp {
     body.innerHTML = `
       <div class="jw-prop-card">
         <div class="jw-prop-title">
-          <span>選択要素: ${ent.id} (${selectedArr.length}件選択)</span>
+          <span>選択要素: ${escapeHtml(ent.id)} (${selectedArr.length}件選択)</span>
           <button id="propDeleteBtn" class="jw-btn" style="color:#dc2626;">消去</button>
         </div>
         <div class="jw-prop-row"><label>レイヤ</label><select id="propLayer">${layerOpts}</select></div>
         <div class="jw-prop-row"><label>線色</label><select id="propColor">${colorOpts}</select></div>
         <div class="jw-prop-row"><label>線種</label><select id="propStyle">${styleOpts}</select></div>
-        <div class="jw-prop-row"><label>線幅</label><input type="number" min="1" max="10" id="propWidth" value="${ent.penWidth || 1}" /></div>
+        <div class="jw-prop-row"><label>線幅</label><input type="number" min="1" max="10" id="propWidth" value="${Number(ent.penWidth) || 1}" /></div>
       </div>
 
       <div class="jw-prop-card">
@@ -7820,7 +7484,6 @@ class JwCadWebApp {
       </div>
     `;
 
-    // Bind live property updates
     const bindProp = (id, fn) => {
       const el = document.getElementById(id);
       if (el) {
@@ -7910,7 +7573,7 @@ class JwCadWebApp {
             </button>
           </td>
           <td>
-            <input type="text" data-lyr-name="${l}" value="${lyr.name}" class="jw-input" style="width:100px;height:20px;" />
+            <input type="text" data-lyr-name="${l}" value="${escapeHtml(lyr.name)}" class="jw-input" style="width:100px;height:20px;" />
           </td>
           <td style="text-align:center;">
             <button class="jw-btn" data-cycle-state="${l}" style="width:54px;">${stateLabel}</button>
@@ -7923,7 +7586,7 @@ class JwCadWebApp {
     body.innerHTML = `
       <div class="jw-prop-card">
         <div class="jw-prop-title">
-          <span>グループ [${gIdx.toString(16).toUpperCase()}]: ${grp.name}</span>
+          <span>グループ [${gIdx.toString(16).toUpperCase()}]: ${escapeHtml(grp.name)}</span>
           <div style="display:flex;gap:3px;">
             <button id="lyrShowAllBtn" class="jw-btn">全表示</button>
             <button id="lyrOpenModalBtn" class="jw-btn">一覧</button>
@@ -7984,9 +7647,6 @@ class JwCadWebApp {
     document.getElementById('lyrOpenModalBtn')?.addEventListener('click', () => this.openLayerDialogModal());
   }
 
-  /**
-   * Render interactive step-by-step tutorial matching https://cad-kenkyujo.com/jw_cad/
-   */
   renderTutorialDock(body) {
     body.innerHTML = `
       <div class="jw-prop-card">
@@ -8072,9 +7732,6 @@ class JwCadWebApp {
     });
   }
 
-  // =========================================================================
-  // Modals: Rich Textbox Editor, Layer Settings Table, JWW/JWC Binary Inspector
-  // =========================================================================
   openTextboxModal(existingEnt, defaultPt) {
     const modal = document.getElementById('textboxModalBackdrop');
     if (!modal) return;
@@ -8118,7 +7775,6 @@ class JwCadWebApp {
     const boxPadding = Math.max(0, Number(document.getElementById('tbInputPadding').value) || 0);
     const anchor = document.getElementById('tbInputAnchor').value || 'left-bottom';
 
-    // Update defaults
     this.toolParams.textContent = text;
     this.toolParams.textSizeX = sizeY;
     this.toolParams.textSizeY = sizeY;
@@ -8199,7 +7855,7 @@ class JwCadWebApp {
 
     const groupSel = document.getElementById('layerModalGroupSelect');
     groupSel.innerHTML = this.doc.layerGroups
-      .map((g, i) => `<option value="${i}" ${i === gIdx ? 'selected' : ''}>グループ [${g.hex}] ${g.name} (S=1/${g.scale})</option>`)
+      .map((g, i) => `<option value="${i}" ${i === gIdx ? 'selected' : ''}>グループ [${escapeHtml(g.hex)}] ${escapeHtml(g.name)} (S=1/${Number(g.scale) || 100})</option>`)
       .join('');
 
     document.getElementById('layerModalGroupName').value = grp.name;
@@ -8212,7 +7868,7 @@ class JwCadWebApp {
       const cnt = this.doc.entities.filter((e) => (e.gLayer ?? 0) === gIdx && (e.layer ?? 0) === l).length;
       html += `
         <tr>
-          <td style="text-align:center;font-weight:700;font-family:monospace;">${lyr.hex}</td>
+          <td style="text-align:center;font-weight:700;font-family:monospace;">${escapeHtml(lyr.hex)}</td>
           <td style="text-align:center;">
             <input type="radio" name="modalWriteLayer" value="${l}" ${grp.activeLayer === l ? 'checked' : ''} />
           </td>
@@ -8224,7 +7880,7 @@ class JwCadWebApp {
             </select>
           </td>
           <td>
-            <input type="text" data-modal-lname="${l}" value="${lyr.name}" class="jw-input" style="width:220px;" />
+            <input type="text" data-modal-lname="${l}" value="${escapeHtml(lyr.name)}" class="jw-input" style="width:220px;" />
           </td>
           <td style="text-align:right;font-family:monospace;">${cnt} 件</td>
         </tr>
@@ -8265,9 +7921,6 @@ class JwCadWebApp {
     this.updateStatusBar('レイヤ名称・状態・縮尺設定を更新しました');
   }
 
-  /**
-   * Open Binary Hex & Round-Trip Verification Inspector Modal
-   */
   openBinaryInspectorModal() {
     const modal = document.getElementById('binaryModalBackdrop');
     if (!modal) return;
@@ -8289,7 +7942,6 @@ class JwCadWebApp {
       }
     }
 
-    // Format Hex + ASCII dump of first 256 bytes of JWW binary
     const dumpLines = [];
     const dumpLen = Math.min(256, u1.byteLength);
     for (let offset = 0; offset < dumpLen; offset += 16) {
@@ -8310,7 +7962,7 @@ class JwCadWebApp {
         <div class="jw-prop-card" style="margin:0;">
           <div class="jw-prop-title">JWW (Windows版バイナリ) 検証</div>
           <div>・マジックナンバー: <code>"JwwData." (4A 77 77 44 61 74 61 2E)</code></div>
-          <div>・バージョン: <code>Ver.${(this.doc.version || 700) / 100} (DWORD=${this.doc.version || 700})</code></div>
+          <div>・バージョン: <code>Ver.${(Number(this.doc.version) || 700) / 100} (DWORD=${Number(this.doc.version) || 700})</code></div>
           <div>・バイナリサイズ: <b>${u1.byteLength.toLocaleString()} bytes</b></div>
           <div>・シリアライズ方式: MFC CArchive (CData 15B基底 + 派生クラス)</div>
           <div>・ラウンドトリップ検証: <b style="color:${byteIdentical ? '#15803d' : '#dc2626'}">${byteIdentical ? 'PASS (100% バイト完全一致)' : 'DIFF'}</b></div>
@@ -8330,9 +7982,6 @@ class JwCadWebApp {
     modal.classList.add('open');
   }
 
-  // =========================================================================
-  // File I/O: Open & Save .jww / .jwc / .dxf / .svg / .png
-  // =========================================================================
   loadSampleDrawing(sampleNum) {
     this.pushUndoState();
     if (sampleNum === 1) {
@@ -8373,6 +8022,10 @@ class JwCadWebApp {
 
   async handleFileUpload(file) {
     if (!file) return;
+    if (file.size > MAX_UPLOAD_BYTES) {
+      this.updateStatusBar('ファイルサイズが大きすぎます (上限 50MB)');
+      return;
+    }
     try {
       const arrayBuf = await file.arrayBuffer();
       const u8 = new Uint8Array(arrayBuf);
@@ -8442,11 +8095,7 @@ class JwCadWebApp {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  // =========================================================================
-  // Bind Menus, Toolbars, Keyboard Shortcuts & Drag-and-Drop
-  // =========================================================================
   bindMenuAndToolbarEvents() {
-    // Menu bar dropdown toggles
     document.querySelectorAll('.jw-menu-item').forEach((item) => {
       item.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -8459,14 +8108,12 @@ class JwCadWebApp {
       document.querySelectorAll('.jw-menu-item').forEach((m) => m.classList.remove('active'));
     });
 
-    // Tool buttons
     document.querySelectorAll('[data-tool]').forEach((btn) => {
       btn.addEventListener('click', () => {
         this.setTool(btn.getAttribute('data-tool'));
       });
     });
 
-    // Dock tab switching
     document.querySelectorAll('[data-dock-tab]').forEach((tab) => {
       tab.addEventListener('click', () => {
         this.activeDockTab = tab.getAttribute('data-dock-tab');
@@ -8474,7 +8121,6 @@ class JwCadWebApp {
       });
     });
 
-    // File actions
     const fileInput = document.getElementById('hiddenFileInput');
     fileInput?.addEventListener('change', (e) => {
       const f = e.target.files?.[0];
@@ -8530,7 +8176,6 @@ class JwCadWebApp {
       });
     });
 
-    // Bottom Drawing Settings Bar selectors
     document.getElementById('paperSizeSelect')?.addEventListener('change', (e) => {
       this.doc.paperSize = e.target.value;
       this.renderDockPanel();
@@ -8546,7 +8191,6 @@ class JwCadWebApp {
       this.requestRedraw();
     });
 
-    // Modal buttons
     document.getElementById('tbModalSaveBtn')?.addEventListener('click', () => this.saveTextboxModal());
     document.getElementById('tbModalCancelBtn')?.addEventListener('click', () => {
       document.getElementById('textboxModalBackdrop')?.classList.remove('open');
@@ -8619,7 +8263,6 @@ class JwCadWebApp {
         return;
       }
 
-      // Jw_cad single-key command shortcuts
       const k = e.key.toLowerCase();
       if (k === '/' || k === 'h') this.setTool('line');
       else if (k === 'b') this.setTool('rect');
@@ -8662,7 +8305,6 @@ window.addEventListener('DOMContentLoaded', () => {
   window.jwCadApp = new JwCadWebApp();
   window.jwCadApp.init();
 });
-
 
 </script>
 </body>
